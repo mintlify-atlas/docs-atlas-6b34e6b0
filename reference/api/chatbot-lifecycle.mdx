@@ -1,0 +1,658 @@
+---
+title: "ChatBot Lifecycle and Event API"
+description: "Reference for the ChatBot base class: script format, lifecycle hooks (Initialize, Update, GetText, OnDisconnect), utility methods, and threading helpers."
+---
+
+Every MCC automation is a C# class that extends `ChatBot`, the abstract base class defined in `MinecraftClient/Scripting/ChatBot.cs`. Scripts are plain `.cs` files with a short metadata header; MCC compiles and loads them at runtime using Roslyn. Built-in bots bundled with MCC and standalone `/script` files share exactly the same event model and toolbox methods described on this page.
+
+## Script file format
+
+A standalone script must start with `//MCCScript 1.0` on the first line, followed by optional `//using` and `//dll` directives, then the bot instantiation passed to `MCC.LoadBot`, and finally `//MCCScript Extensions` before the class definition.
+
+```csharp
+//MCCScript 1.0
+
+//using System.Collections.Immutable   // optional extra namespace
+//dll MyHelpers.dll                    // optional extra DLL
+
+MCC.LoadBot(new MyBot());
+
+//MCCScript Extensions
+
+public class MyBot : ChatBot
+{
+    public override void Initialize()
+    {
+        LogToConsole("Bot loaded!");
+    }
+}
+```
+
+Run a script with the MCC internal command `/script MyBot.cs`. The following namespaces are available without any `//using` directive: `System`, `System.Collections.Generic`, `System.Text.RegularExpressions`, `System.Linq`, `System.Text`, `System.IO`, `System.Net`, `System.Threading`, `MinecraftClient`, `MinecraftClient.Mapping`, and `MinecraftClient.Inventory`.
+
+<Note>
+Do **not** send chat or commands from `Initialize()`. The login handshake is not complete at that point. Use `AfterGameJoined()` instead.
+</Note>
+
+---
+
+## Lifecycle events
+
+These `virtual` methods are called by MCC at well-defined points. Override only the ones you need; every method has an empty default implementation so unhandled events are silently ignored.
+
+### Initialize
+
+```csharp
+public virtual void Initialize()
+```
+
+Called exactly once when the bot is first loaded. Use this method to set up fields, caches, and other one-time state. Do not call `SendText` here.
+
+---
+
+### OnUnload
+
+```csharp
+public virtual void OnUnload()
+```
+
+Called when the bot is being unloaded. Release resources such as database connections, background threads, plugin channel registrations, and movement locks here.
+
+---
+
+### AfterGameJoined
+
+```csharp
+public virtual void AfterGameJoined()
+```
+
+Called after successfully joining a server and after every reconnect. This is the earliest safe point to call `SendText`. Unlike `Initialize`, this method fires again on each reconnect.
+
+---
+
+### Update
+
+```csharp
+public virtual void Update()
+```
+
+Called every client tick, approximately every 50 ms at 20 TPS. Suitable for lightweight polling loops. Avoid blocking operations; long-running work should be offloaded with `ScheduleOnMainThread` or a background `Task`.
+
+---
+
+### GetText
+
+```csharp
+public virtual void GetText(string text)
+public virtual void GetText(string text, string? json)
+```
+
+Called for every text message sent by the server, including chat, system messages, and action bar text. The two-parameter overload also receives the raw JSON from the server; `json` is `null` on MC 1.5 and older.
+
+Always strip color codes with `GetVerbatim(text)` before passing `text` to `IsChatMessage` or `IsPrivateMessage`.
+
+<ParamField path="text" type="string" required>
+  Plain-text representation of the message, including Minecraft color codes (`§`).
+</ParamField>
+<ParamField path="json" type="string?">
+  Raw JSON string from the server. `null` on MC 1.5 and older.
+</ParamField>
+
+---
+
+### OnDisconnect
+
+```csharp
+public virtual bool OnDisconnect(DisconnectReason reason, string message)
+```
+
+Called when the client disconnects. Return `true` to signal that MCC is about to restart (for informational use; the restart decision is made by MCC itself).
+
+<ParamField path="reason" type="DisconnectReason" required>
+  One of `InGameKick`, `LoginRejected`, `ConnectionLost`, or `UserLogout`.
+</ParamField>
+<ParamField path="message" type="string" required>
+  The kick or disconnect message, if any.
+</ParamField>
+
+---
+
+### OnDeath / OnRespawn
+
+```csharp
+public virtual void OnDeath()
+public virtual void OnRespawn()
+```
+
+`OnDeath` fires when the player dies. `OnRespawn` fires when the player respawns after death or after changing dimensions.
+
+---
+
+### OnHealthUpdate
+
+```csharp
+public virtual void OnHealthUpdate(float health, int food)
+```
+
+Called whenever the server updates player health or food.
+
+<ParamField path="health" type="float" required>
+  Current player health (0.0 to 20.0). 0.0 means the player is dead.
+</ParamField>
+<ParamField path="food" type="int" required>
+  Current food level (0 to 20).
+</ParamField>
+
+---
+
+### OnHeldItemChange
+
+```csharp
+public virtual void OnHeldItemChange(byte slot)
+```
+
+Called when the active hotbar slot changes.
+
+<ParamField path="slot" type="byte" required>
+  New hotbar slot index (0-8).
+</ParamField>
+
+---
+
+### OnPlayerJoin / OnPlayerLeave
+
+```csharp
+public virtual void OnPlayerJoin(Guid uuid, string name)
+public virtual void OnPlayerLeave(Guid uuid, string? name)
+```
+
+Called when a player enters or exits the server's player list. `name` may be `null` in `OnPlayerLeave` if the server did not include it in the packet.
+
+<ParamField path="uuid" type="Guid" required>
+  The player's unique identifier.
+</ParamField>
+<ParamField path="name" type="string" required>
+  The player's username.
+</ParamField>
+
+---
+
+### OnEntitySpawn / OnEntityDespawn
+
+```csharp
+public virtual void OnEntitySpawn(Entity entity)
+public virtual void OnEntityDespawn(Entity entity)
+```
+
+Called when a nearby entity appears or disappears. Requires entity handling to be enabled in MCC configuration.
+
+<ParamField path="entity" type="Entity" required>
+  The entity that was spawned or despawned. See the Entity properties reference in the Entities and Movement API page.
+</ParamField>
+
+---
+
+### OnEntityMove / OnEntityRotate
+
+```csharp
+public virtual void OnEntityMove(Entity entity)
+public virtual void OnEntityRotate(Entity entity)
+```
+
+Called when a tracked entity's position or rotation is updated by the server.
+
+---
+
+### OnEntityHealth
+
+```csharp
+public virtual void OnEntityHealth(Entity entity, float health)
+```
+
+Called when the server reports a health change for a tracked entity.
+
+---
+
+### OnInventoryUpdate / OnInventoryOpen / OnInventoryClose
+
+```csharp
+public virtual void OnInventoryUpdate(int inventoryId)
+public virtual void OnInventoryOpen(int inventoryId)
+public virtual void OnInventoryClose(int inventoryId)
+```
+
+Called when the server sends inventory state changes. Requires inventory handling to be enabled.
+
+<ParamField path="inventoryId" type="int" required>
+  Window ID of the affected inventory. `0` is the player inventory.
+</ParamField>
+
+---
+
+### OnGamemodeUpdate
+
+```csharp
+public virtual void OnGamemodeUpdate(string playername, Guid uuid, int gamemode)
+```
+
+Called when any player's game mode changes.
+
+<ParamField path="playername" type="string" required>Player name.</ParamField>
+<ParamField path="uuid" type="Guid" required>Player UUID.</ParamField>
+<ParamField path="gamemode" type="int" required>
+  New game mode: `0` = Survival, `1` = Creative, `2` = Adventure, `3` = Spectator.
+</ParamField>
+
+---
+
+### OnTeam
+
+```csharp
+public virtual void OnTeam(string teamName, byte method, string displayName,
+    byte friendlyFlags, string nameTagVisibility, string collisionRule,
+    int color, string prefix, string suffix, List<string> players)
+```
+
+Called whenever a scoreboard team packet arrives.
+
+<ParamField path="teamName" type="string" required>Internal team name (up to 16 characters).</ParamField>
+<ParamField path="method" type="byte" required>
+  `0` = create, `1` = remove, `2` = update parameters, `3` = add players, `4` = remove players.
+</ParamField>
+<ParamField path="displayName" type="string">Formatted display name. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="friendlyFlags" type="byte">Bit 0 = allowFriendlyFire, bit 1 = seeFriendlyInvisibles. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="nameTagVisibility" type="string">One of `"always"`, `"never"`, `"hideForOtherTeams"`, `"hideForOwnTeam"`. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="collisionRule" type="string">One of `"always"`, `"never"`, `"pushOtherTeams"`, `"pushOwnTeam"`. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="color" type="int">`ChatFormatting` ordinal. `-1` = none/reset. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="prefix" type="string">Member name prefix. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="suffix" type="string">Member name suffix. Present when `method` is 0 or 2.</ParamField>
+<ParamField path="players" type="List&lt;string&gt;">Player or entity names. Present when `method` is 0, 3, or 4.</ParamField>
+
+---
+
+### OnPlayerProperty
+
+```csharp
+public virtual void OnPlayerProperty(Dictionary<string, double> prop)
+```
+
+Called when the server sends attribute property updates for the local player entity.
+
+---
+
+### OnSetExperience
+
+```csharp
+public virtual void OnSetExperience(float Experiencebar, int Level, int TotalExperience)
+```
+
+Called when the player's XP changes.
+
+<ParamField path="Experiencebar" type="float">Progress within the current level, between 0.0 and 1.0.</ParamField>
+<ParamField path="Level" type="int">Current XP level.</ParamField>
+<ParamField path="TotalExperience" type="int">Total accumulated XP points.</ParamField>
+
+---
+
+### OnKilled
+
+```csharp
+public virtual void OnKilled(Entity killerEntity, string chatMessage)
+```
+
+Called when the player is killed by another entity. For a death with no killer entity, use `OnDeath` instead.
+
+---
+
+### OnBlockChange
+
+```csharp
+public virtual void OnBlockChange(Location location, Block block)
+```
+
+Called when a block is updated in the world.
+
+---
+
+### OnAchievementUpdate
+
+```csharp
+public virtual void OnAchievementUpdate(
+    IReadOnlyList<Achievement> updated,
+    IReadOnlyList<string> removedIds,
+    bool reset)
+```
+
+Called when advancement or achievement data changes.
+
+<ParamField path="updated" type="IReadOnlyList&lt;Achievement&gt;">Achievements that were added or updated.</ParamField>
+<ParamField path="removedIds" type="IReadOnlyList&lt;string&gt;">IDs of achievements that were removed.</ParamField>
+<ParamField path="reset" type="bool">Whether the full achievement state was reset before this update.</ParamField>
+
+---
+
+### Additional event hooks
+
+The following events are available for advanced use cases. Refer to `ChatBot.cs` for full parameter documentation.
+
+| Method | Trigger |
+|---|---|
+| `OnBlockBreakAnimation(Entity, Location, byte)` | Player break-block animation (survival mode) |
+| `OnEntityAnimation(Entity, byte)` | Hit or place animation |
+| `OnEntityEquipment(Entity, int, Item?)` | Entity equipment slot changed |
+| `OnEntityEffect(Entity, Effects, int, int, byte)` | Status effect applied to entity |
+| `OnRemoveEntityEffect(Entity, Effects)` | Status effect removed from entity |
+| `OnEntityVelocity(Entity, double, double, double)` | Velocity update for a tracked entity |
+| `OnEntityMetadata(Entity, Dictionary<int,object?>)` | Entity metadata updated |
+| `OnExplosion(Location, float, int)` | Explosion occurred |
+| `OnMapData(...)` | Map item data updated |
+| `OnTradeList(int, List<VillagerTrade>, VillagerInfo)` | Villager trade list received |
+| `OnTitle(int, string, string, string, int, int, int, string)` | Title/subtitle/action bar packet |
+| `OnScoreboardObjective(...)` | Scoreboard objective updated |
+| `OnUpdateScore(...)` | Scoreboard score updated |
+| `OnTabListHeaderAndFooter(string, string)` | Tab list header/footer updated |
+| `OnInventoryProperties(byte, short, short)` | Container property updated (furnace progress, etc.) |
+| `OnEnchantments(...)` | Enchanting table options updated |
+| `OnLatencyUpdate(string, Guid, int)` | Player latency updated |
+| `OnServerTpsUpdate(double)` | Server TPS estimate updated |
+| `OnTimeUpdate(long, long)` | World time changed |
+| `OnSoundEffect(string?, Location?, int, float, float, Entity?)` | Sound effect packet received |
+| `OnInternalCommand(string, string, CmdResult)` | MCC internal command executed |
+| `OnPluginMessage(string, byte[])` | Plugin channel message received |
+| `OnNetworkPacket(int, List<byte>, bool, bool)` | Raw network packet received/sent |
+| `OnRainLevelChange(float)` | Rain intensity changed |
+| `OnThunderLevelChange(float)` | Thunder intensity changed |
+| `OnPlayerStatus(byte)` | Client player status updated |
+
+---
+
+## Utility methods
+
+These `protected` methods are available to every bot via the `ChatBot` toolbox.
+
+### SendText
+
+```csharp
+protected bool SendText(string text, bool sendImmediately = false)
+```
+
+Sends a message or command to the server. Prefix with `/` to send a server-side command.
+
+<ParamField path="text" type="string" required>Text or command to send. Max length: use `GetMaxChatMessageLength()` to check.</ParamField>
+<ParamField path="sendImmediately" type="bool">Deprecated parameter kept for script compatibility. Ignored.</ParamField>
+
+---
+
+### LogToConsole / LogDebugToConsole
+
+```csharp
+protected void LogToConsole(object? text)
+protected void LogDebugToConsole(object text)
+```
+
+Write a message to the MCC console. `LogDebugToConsole` only outputs when debug logging is enabled in MCC configuration. Neither method sends anything to the server.
+
+---
+
+### LoadBot / UnLoadBot
+
+```csharp
+protected void LoadBot(ChatBot bot)
+protected void UnLoadBot(ChatBot bot)
+```
+
+Dynamically load or unload a bot instance at runtime. `LoadBot` first unloads any existing instance of the same bot before loading the new one.
+
+---
+
+### RunScript
+
+```csharp
+protected void RunScript(string filename, string? playername = null,
+    Dictionary<string, object>? localVars = null)
+```
+
+Compile and load another `//MCCScript` file.
+
+<ParamField path="filename" type="string" required>Path to the `.cs` script file.</ParamField>
+<ParamField path="playername" type="string?">Player name to receive error messages, if applicable.</ParamField>
+<ParamField path="localVars" type="Dictionary&lt;string,object&gt;?">Local variables to inject into the script.</ParamField>
+
+---
+
+### GetVerbatim
+
+```csharp
+public static string GetVerbatim(string? text)
+```
+
+Strips Minecraft color codes (`§c`, `§#rrggbb`) from a string. Always call this before passing server text to `IsChatMessage` or `IsPrivateMessage`.
+
+---
+
+### IsChatMessage / IsPrivateMessage
+
+```csharp
+protected static bool IsChatMessage(string text, ref string message, ref string sender)
+protected static bool IsPrivateMessage(string text, ref string message, ref string sender)
+```
+
+Parse common chat formats from vanilla and popular server plugins. Both methods write the extracted `message` body and `sender` name into the `ref` parameters and return `true` on a successful parse. Pass verbatim (color-stripped) text.
+
+---
+
+### GetUsername / GetUserUUID
+
+```csharp
+protected string GetUsername()
+protected string GetUserUUID()
+```
+
+Return the bot account's username and UUID string respectively.
+
+---
+
+### GetServerHost / GetServerPort
+
+```csharp
+protected string GetServerHost()
+protected int GetServerPort()
+```
+
+Return the hostname and port of the current connection.
+
+---
+
+### GetGamemode
+
+```csharp
+protected int GetGamemode()
+```
+
+Returns the current game mode: `0` = Survival, `1` = Creative, `2` = Adventure, `3` = Spectator.
+
+---
+
+### GetOnlinePlayers / GetOnlinePlayersWithUUID
+
+```csharp
+protected string[] GetOnlinePlayers()
+protected Dictionary<string, string> GetOnlinePlayersWithUUID()
+```
+
+`GetOnlinePlayers` returns a list of online usernames. `GetOnlinePlayersWithUUID` returns a dictionary mapping UUID string to player name.
+
+---
+
+### GetTimestamp / GetShortTimestamp
+
+```csharp
+protected static string GetTimestamp()
+protected static string GetShortTimestamp()
+```
+
+Return a formatted timestamp string. `GetTimestamp` returns `yyyy-MM-dd HH:mm:ss`; `GetShortTimestamp` returns `HH:mm:ss`.
+
+---
+
+### GetServerTPS
+
+```csharp
+protected double GetServerTPS()
+```
+
+Returns the most recent server TPS estimate calculated by MCC from world time update packets.
+
+---
+
+### GetProtocolVersion
+
+```csharp
+protected int GetProtocolVersion()
+```
+
+Returns the Minecraft protocol number in use for the current session.
+
+---
+
+### ScheduleOnMainThread
+
+```csharp
+protected void ScheduleOnMainThread(Action task, int delayTicks = 0)
+protected void ScheduleOnMainThread(Action task, TimeSpan delay)
+```
+
+Schedule an action to run on the MCC main thread after an optional delay. Does not block the caller. One tick is approximately 50 ms at 20 TPS.
+
+<ParamField path="task" type="Action" required>The action to run.</ParamField>
+<ParamField path="delayTicks" type="int">Number of ticks to wait before running. `0` means run as soon as possible.</ParamField>
+<ParamField path="delay" type="TimeSpan">Alternatively, specify a `TimeSpan` delay.</ParamField>
+
+---
+
+### InvokeOnMainThread
+
+```csharp
+protected T InvokeOnMainThread<T>(Func<T> task)
+protected void InvokeOnMainThread(Action task)
+```
+
+Run a task on the MCC main thread and **wait** for it to complete. Use this to safely read or mutate shared state from a background thread.
+
+---
+
+### ReconnectToTheServer / DisconnectAndExit
+
+```csharp
+protected void ReconnectToTheServer(int ExtraAttempts = 3, int delaySeconds = 0,
+    bool keepAccountAndServerSettings = false)
+protected void DisconnectAndExit()
+```
+
+`ReconnectToTheServer` triggers a full reconnect cycle. `DisconnectAndExit` disconnects and exits MCC entirely.
+
+---
+
+### SendPrivateMessage
+
+```csharp
+protected void SendPrivateMessage(string player, string message)
+```
+
+Sends a private message using the configured private-message command (default `/msg`).
+
+---
+
+### RegisterChatBotCommand
+
+```csharp
+protected void RegisterChatBotCommand(string cmdName, string cmdDesc,
+    string cmdUsage, CommandRunner callback)
+```
+
+Register a custom MCC internal command backed by Brigadier. The command is automatically unregistered when the bot is unloaded.
+
+---
+
+### App variables
+
+```csharp
+protected void SetAppVar(string name, object value)
+protected object? GetAppVar(string name)
+protected string ExpandAppVars(string text)
+```
+
+Read and write named values in the MCC app-variable registry. `ExpandAppVars` replaces variable placeholders in a string with their stored values.
+
+---
+
+## Complete example
+
+The following script demonstrates the most common patterns: initialization, chat parsing, health monitoring, and a scheduled action.
+
+```csharp
+//MCCScript 1.0
+
+MCC.LoadBot(new DemoBot());
+
+//MCCScript Extensions
+
+public class DemoBot : ChatBot
+{
+    private int tickCount = 0;
+
+    public override void Initialize()
+    {
+        // Safe to read config or set up state here.
+        // Do NOT call SendText here.
+        LogToConsole("DemoBot loaded.");
+    }
+
+    public override void AfterGameJoined()
+    {
+        // Safe to send chat or commands after joining.
+        LogToConsole("Joined as " + GetUsername() + " on " + GetServerHost());
+        // Schedule a greeting 40 ticks (~2 seconds) after joining.
+        ScheduleOnMainThread(() => SendText("Hello, world!"), 40);
+    }
+
+    public override void Update()
+    {
+        tickCount++;
+        if (tickCount >= 200) // every ~10 seconds
+        {
+            tickCount = 0;
+            LogDebugToConsole("Tick heartbeat");
+        }
+    }
+
+    public override void GetText(string text)
+    {
+        string message = "";
+        string sender = "";
+        text = GetVerbatim(text);
+
+        if (IsChatMessage(text, ref message, ref sender))
+        {
+            if (message.ToLower() == "ping")
+                SendText("Pong!");
+        }
+        else if (IsPrivateMessage(text, ref message, ref sender))
+        {
+            LogToConsole("PM from " + sender + ": " + message);
+        }
+    }
+
+    public override void OnHealthUpdate(float health, int food)
+    {
+        if (health <= 6.0f)
+            LogToConsole("Warning: low health (" + health + ")");
+    }
+
+    public override bool OnDisconnect(DisconnectReason reason, string message)
+    {
+        LogToConsole("Disconnected: " + reason + " - " + message);
+        return false;
+    }
+}
+```

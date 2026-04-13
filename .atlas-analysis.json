@@ -1,0 +1,120 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Minecraft Console Client",
+  "projectDescription": "A lightweight, cross-platform TUI client for Minecraft Java Edition that lets you connect to servers, send commands, and automate gameplay without launching the full game.",
+  "theme": "palm",
+  "primaryColor": "#04c104",
+  "lightColor": "#212421",
+  "darkColor": "#b5b5b5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "usage"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/authentication",
+              "configuration/proxy-and-logging"
+            ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "automation/built-in-bots",
+              "automation/text-scripts",
+              "automation/csharp-bots",
+              "automation/websocket"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/docker",
+              "advanced/building-from-source",
+              "advanced/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "reference/commands/overview",
+              "reference/commands/chat-and-connection",
+              "reference/commands/movement-and-world",
+              "reference/commands/inventory-and-items",
+              "reference/commands/scripting-and-bots"
+            ]
+          },
+          {
+            "group": "Built-in Bots",
+            "pages": [
+              "reference/bots/alerts-and-respond",
+              "reference/bots/anti-afk-and-relog",
+              "reference/bots/combat-and-farming",
+              "reference/bots/chat-log-and-scheduler",
+              "reference/bots/bridges-and-remote"
+            ]
+          },
+          {
+            "group": "Bot API",
+            "pages": [
+              "reference/api/chatbot-lifecycle",
+              "reference/api/world-and-inventory",
+              "reference/api/entities-and-movement"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Connect to any Minecraft Java server without launching the game",
+    "Send and receive chat messages from the terminal",
+    "Microsoft account authentication with 2FA via OAuth 2.0 device code flow",
+    "28 built-in automation bots (AutoFishing, Farmer, FollowPlayer, AutoEat, etc.)",
+    "Runtime C# scripting via Roslyn for custom bot logic",
+    "Simple text-based scripts with one command per line",
+    "A* pathfinding with vanilla-accurate physics-based movement",
+    "Inventory, terrain, and entity handling for supported Minecraft versions",
+    "Discord and Telegram bridge bots for server integration",
+    "WebSocket bot for external remote control via JSON API",
+    "Docker support for 24/7 operation",
+    "Supports Minecraft Java Edition 1.4.6 through 26.1"
+  ],
+  "publicApiSurface": [
+    "ChatBot.Initialize() — called once on bot load",
+    "ChatBot.Update() — called every tick (~50ms, 20 TPS)",
+    "ChatBot.GetText(string text) — called on incoming chat message",
+    "ChatBot.OnDisconnect(DisconnectReason reason, string message)",
+    "ChatBot.SendText(string text) — send chat or command to server",
+    "ChatBot.LogToConsole(string msg) — log message to MCC console",
+    "ChatBot.GetWorld() — access terrain/block data",
+    "ChatBot.GetInventory() — access player inventory",
+    "ChatBot.GetEntities() — access tracked entities",
+    "ChatBot.MoveToLocation(Location goal) — pathfind to coordinates",
+    "ChatBot.GetPlayerInfo() — get player list and info",
+    "ChatBot.RunScript(string filename) — execute a script file",
+    "/connect <server> [account] — connect to a Minecraft server",
+    "/send <message> — send a chat message",
+    "/move <direction|location> — move the player",
+    "/inventory <action> — manage inventory",
+    "/script <filename> — run a C# or text script",
+    "/bots <list|unload> — manage loaded bots",
+    "/entity <action> — interact with entities",
+    "/dig <location> — dig a block at coordinates"
+  ]
+}

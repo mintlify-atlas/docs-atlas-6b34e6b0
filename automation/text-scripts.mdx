@@ -1,0 +1,105 @@
+---
+title: "Automate MCC with Simple Text Scripts"
+description: "Text scripts automate MCC with one command per line. Use built-in variables, AppVars, and comments to build sequences without writing any C# code."
+---
+
+Text scripts are plain `.txt` files where each line is one MCC internal command. They require no programming knowledge and are the fastest way to automate simple tasks such as sending a greeting on login, waiting, and then disconnecting. Any line that starts with `#` is ignored by MCC and treated as a comment.
+
+## Script format
+
+A text script is just a sequence of internal commands, one per line. You can use any command that you can type into the MCC console. The same commands appear when you run `/help` in MCC.
+
+```text
+# This is a sample script for Minecraft Console Client
+# Any line beginning with "#" is ignored and treated as a comment.
+
+send Hello World! I'm a bot scripted using Minecraft Console Client.
+wait 60
+send Now quitting. Bye :)
+exit
+```
+
+The script above sends a chat message, waits 60 seconds, sends a farewell, and then disconnects from the server.
+
+## Built-in variables
+
+MCC exposes several read-only variables that are replaced with live values when the script runs. Use them anywhere in a command line by wrapping the name in `%` characters.
+
+| Variable | Replaced with |
+|---|---|
+| `%username%` | The MCC account's Minecraft username |
+| `%login%` | The login name or email used to authenticate |
+| `%serverip%` | The server's IP address |
+| `%serverport%` | The server's port number |
+| `%datetime%` | The current date and time |
+| `%players%` | Comma-separated list of online player names, or an empty string when not connected |
+
+```text
+send Hello, my name is %username% and I am playing on %serverip%!
+```
+
+## AppVars: user-defined variables
+
+In addition to the built-in variables, you can define your own variables (called AppVars) in two ways:
+
+**Option 1 — Set them in the config file** under the `[AppVars]` section:
+
+```toml
+[AppVars]
+myhome = "123 64 456"
+greeting = "Hello from the bot!"
+```
+
+**Option 2 — Set them at runtime** using the `set` command inside a script:
+
+```text
+set greeting Hello from the bot!
+send %greeting%
+```
+
+AppVars persist for the lifetime of the MCC session and can be read or written from any script or C# bot.
+
+## Running a script
+
+Save your script file in the same folder as the MCC executable, then use the `/script` command to run it:
+
+```
+/script myscript.txt
+```
+
+You can also schedule scripts to run automatically on login or at specific times using the [ScriptScheduler](/automation/built-in-bots) bot.
+
+## How to create and run your first script
+
+<Steps>
+  <Step title="Create the script file">
+    Create a plain text file called `hello.txt` in the same folder as your MCC executable.
+  </Step>
+  <Step title="Write your commands">
+    Add one MCC command per line. Start comment lines with `#`.
+
+    ```text
+    # Greeting script
+    send Hello World! I'm a bot scripted using Minecraft Console Client.
+    wait 60
+    send Now quitting. Bye :)
+    exit
+    ```
+  </Step>
+  <Step title="Connect MCC to a server">
+    Launch MCC and connect to your Minecraft server as normal.
+  </Step>
+  <Step title="Run the script">
+    In the MCC console, type:
+
+    ```
+    /script hello.txt
+    ```
+
+    MCC will execute each command in order. The bot will send the greeting, wait 60 seconds, send the farewell, and then disconnect.
+  </Step>
+</Steps>
+
+<Tip>
+  For more advanced automation that needs conditional logic, loops, or access to game state such as inventory and entities, use [C# bots](/automation/csharp-bots) instead.
+</Tip>

@@ -1,0 +1,745 @@
+---
+title: "Built-in Automation Bots for MCC"
+description: "MCC includes 28 built-in bots for AFK prevention, fishing, farming, Discord and Telegram bridges, remote control, and more. Enable each in the config file."
+---
+
+Minecraft Console Client ships with 28 built-in automation bots called Chat Bots. Each bot is configured in the `MinecraftClient.ini` config file under its own `[ChatBot.BotName]` section. To enable a bot, open the config file, locate the relevant section, and set `Enabled = true`. Most bots are disabled by default and will not run until you explicitly turn them on.
+
+<Note>
+All settings referenced on this page live in the MCC configuration file. The section header for each bot is shown as `[ChatBot.BotName]`. Some bots require additional MCC features such as `TerrainAndMovements`, `InventoryHandling`, or `EntityHandling` to be enabled before they will work.
+</Note>
+
+## Chat & Alerts
+
+<AccordionGroup>
+  <Accordion title="Alerts">
+    Get alerted when specified words appear in chat. Useful for moderation or detecting when someone mentions your name.
+
+    **Config section:** `[ChatBot.Alerts]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Beep_Enabled` | boolean | `true` | Play a beep sound on alert (system-dependent) |
+    | `Trigger_By_Words` | boolean | `false` | Alert when a keyword from `Matches` is detected |
+    | `Trigger_By_Rain` | boolean | `false` | Alert when rain starts or stops |
+    | `Trigger_By_Thunderstorm` | boolean | `false` | Alert at the start and end of thunderstorms |
+    | `Log_To_File` | boolean | `false` | Write alerts to a file |
+    | `Log_File` | string | `"alerts-log.txt"` | Path to the alerts log file |
+    | `Matches` | array of strings | `[]` | Words that trigger an alert |
+    | `Excludes` | array of strings | `[]` | Words that suppress an alert |
+
+    ```toml
+    [ChatBot.Alerts]
+    Enabled = true
+    Trigger_By_Words = true
+    Matches = [ "Yourname", " whispers ", "-> me", "admin" ]
+    Excludes = [ "myserver.com", "Yourname>:" ]
+    ```
+  </Accordion>
+
+  <Accordion title="AutoRespond">
+    Run commands or send messages automatically when a specified pattern is detected in chat.
+
+    **Config section:** `[ChatBot.AutoRespond]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Matches_File` | string | `"matches.ini"` | Path to the file containing match/response rules |
+    | `Match_Colors` | boolean | `false` | Preserve color formatting when matching |
+
+    <Warning>
+      Server admins can spoof private messages using `/tellraw` or `/nick`. Enable AutoRespond only on servers you trust. The bot can also become spammy; use the global `messagecooldown` setting to limit outgoing messages.
+    </Warning>
+
+    Rules are defined in an external file (default `matches.ini`). See the [`sample-matches.ini`](https://github.com/MCCTeam/Minecraft-Console-Client/blob/master/MinecraftClient/config/sample-matches.ini) for a detailed format guide.
+
+    ```toml
+    [ChatBot.AutoRespond]
+    Enabled = true
+    Matches_File = "matches.ini"
+    ```
+  </Accordion>
+
+  <Accordion title="ChatLog">
+    Log all chat messages to a file, with optional timestamps and message-type filtering.
+
+    **Config section:** `[ChatBot.ChatLog]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Add_DateTime` | boolean | `true` | Prepend timestamps to logged messages |
+    | `Log_File` | string | `"chatlog-%username%-%serverip%.txt"` | Log file name (supports variables) |
+    | `Filter` | string | `"messages"` | What to log: `all`, `messages`, `chat`, `private`, or `internal` |
+
+    ```toml
+    [ChatBot.ChatLog]
+    Enabled = true
+    Add_DateTime = true
+    Filter = "messages"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## AFK & Reconnect
+
+<AccordionGroup>
+  <Accordion title="AntiAFK">
+    Prevent automatic AFK disconnection by sending a command, sneaking, or walking randomly on a configurable interval.
+
+    **Config section:** `[ChatBot.AntiAFK]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Delay` | inline table | `{ min = 60.0, max = 60.0 }` | Interval in seconds between actions; set different min/max for randomness |
+    | `Command` | string | `"/ping"` | Command to send on each trigger |
+    | `Use_Sneak` | boolean | `false` | Sneak on each trigger |
+    | `Use_Terrain_Handling` | boolean | `false` | Walk randomly instead of sending a command |
+    | `Walk_Range` | integer | `5` | Range (in blocks) for random walking (-X to +X and -Z to +Z) |
+    | `Walk_Retries` | integer | `20` | Path attempts before falling back to command method |
+
+    <Note>
+      `Use_Terrain_Handling` requires `TerrainAndMovements` to be enabled. Enclose the bot in a small area (recommended 5x5x5) to prevent it from wandering off.
+    </Note>
+
+    ```toml
+    [ChatBot.AntiAFK]
+    Enabled = true
+    Delay = { min = 55.0, max = 70.0 }
+    Command = "/ping"
+    ```
+  </Accordion>
+
+  <Accordion title="AutoRelog">
+    Automatically reconnect to the server when disconnected, with configurable delay, retry limit, and kick-message filtering.
+
+    **Config section:** `[ChatBot.AutoRelog]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Delay` | inline table | `{ min = 3.0, max = 3.0 }` | Delay before reconnecting in seconds |
+    | `Retries` | integer | `-1` | Number of reconnect attempts; `-1` for infinite |
+    | `Ignore_Kick_Message` | boolean | `false` | Reconnect regardless of kick message content |
+    | `Kick_Messages` | array of strings | `[ "Connection has been lost", "Server is restarting", ... ]` | Kick message keywords that trigger reconnect |
+
+    <Warning>
+      Infinite retries (`Retries = -1`) may get you banned from some servers if the server detects repeated reconnections.
+    </Warning>
+
+    ```toml
+    [ChatBot.AutoRelog]
+    Enabled = true
+    Delay = { min = 5.0, max = 10.0 }
+    Retries = 10
+    Kick_Messages = [ "Server is restarting", "Server is full" ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Gameplay Automation
+
+<AccordionGroup>
+  <Accordion title="AutoAttack">
+    Automatically attack mobs in range. Supports single or multi-target mode, priority by health or distance, and a whitelist/blacklist of entity types.
+
+    **Config section:** `[ChatBot.AutoAttack]`
+
+    <Note>
+      Requires `InventoryHandling` and `EntityHandling` to be enabled.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Mode` | string | `"single"` | `single` (one mob per swing) or `multi` (all in range) |
+    | `Priority` | string | `"distance"` | Target priority: `health` or `distance` |
+    | `Cooldown_Time` | inline table | `{ Custom = false, value = 1.0 }` | Custom attack cooldown in seconds |
+    | `Interaction` | string | `"Attack"` | `Attack`, `Interact`, or `InteractAt` |
+    | `Attack_Hostile` | boolean | `true` | Attack hostile mobs |
+    | `Attack_Passive` | boolean | `false` | Attack passive mobs |
+    | `List_Mode` | string | `"whitelist"` | `whitelist` (only attack listed) or `blacklist` (skip listed) |
+    | `Entites_List` | array of strings | `[ "Zombie", "Cow" ]` | Entity types to whitelist or blacklist |
+
+    ```toml
+    [ChatBot.AutoAttack]
+    Enabled = true
+    Mode = "single"
+    Attack_Hostile = true
+    Attack_Passive = false
+    List_Mode = "whitelist"
+    Entites_List = [ "Zombie", "Skeleton", "Spider" ]
+    ```
+  </Accordion>
+
+  <Accordion title="AutoCraft">
+    Automatically craft items using recipes defined in the config. Supports both 2x2 player inventory crafting and 3x3 crafting table crafting.
+
+    **Config section:** `[ChatBot.AutoCraft]`
+
+    <Note>
+      Requires `InventoryHandling`. For crafting table recipes, `TerrainAndMovements` must also be enabled.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `CraftingTable` | inline table | — | Coordinates of the crafting table: `{ X = 0.0, Y = 0.0, Z = 0.0 }` |
+    | `OnFailure` | string | `"abort"` | What to do when crafting fails: `abort` or `wait` |
+
+    Recipes are defined as `[[ChatBot.AutoCraft.Recipes]]` subsections. Each recipe has a `Name`, `Type` (`player` or `table`), `Result` item type, and `Slots` array.
+
+    **Commands:** `/autocraft list`, `/autocraft start <name>`, `/autocraft stop`, `/autocraft help`
+
+    ```toml
+    [ChatBot.AutoCraft]
+    Enabled = true
+    CraftingTable = { X = 123.0, Y = 65.0, Z = 456.0 }
+    OnFailure = "wait"
+
+    [[ChatBot.AutoCraft.Recipes]]
+    Name = "stone-bricks"
+    Type = "player"
+    Result = "StoneBricks"
+    Slots = [ "Stone", "Stone", "Stone", "Stone" ]
+    ```
+  </Accordion>
+
+  <Accordion title="AutoDig">
+    Automatically dig blocks at specified locations or at the block the bot is looking at.
+
+    **Config section:** `[ChatBot.AutoDig]`
+
+    <Note>
+      Requires `InventoryHandling` and `TerrainAndMovements`.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Mode` | string | `"lookat"` | `lookat`, `fixedpos`, or `both` |
+    | `Locations` | array of inline tables | `[]` | List of `{ x, y, z }` coordinates to dig |
+    | `Location_Order` | string | `"distance"` | `distance` (nearest first) or `index` (list order) |
+    | `Auto_Start_Delay` | float | `3.0` | Seconds to wait before auto-starting; `-1` to disable |
+    | `Auto_Tool_Switch` | boolean | `false` | Switch to the best tool automatically |
+    | `Durability_Limit` | integer | `2` | Skip tools below this durability |
+    | `List_Type` | string | `"whitelist"` | `whitelist` or `blacklist` for the `Blocks` list |
+    | `Blocks` | array of strings | `[ "Cobblestone", "Stone" ]` | Block types to dig or skip |
+
+    **Commands:** `/digbot start`, `/digbot stop`
+
+    ```toml
+    [ChatBot.AutoDig]
+    Enabled = true
+    Mode = "fixedpos"
+    Locations = [
+      { x = 123.5, y = 64.0, z = 234.5 },
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="AutoDrop">
+    Automatically drop unwanted items from the inventory based on a configurable include/exclude list.
+
+    **Config section:** `[ChatBot.AutoDrop]`
+
+    <Note>
+      Requires `InventoryHandling`.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Mode` | string | `"include"` | `include` (drop listed items), `exclude` (keep listed items), or `everything` |
+    | `Items` | array of strings | `[ "Cobblestone", "Dirt" ]` | Items to drop or keep depending on `Mode` |
+
+    ```toml
+    [ChatBot.AutoDrop]
+    Enabled = true
+    Mode = "exclude"
+    Items = [ "DiamondOre", "EmeraldOre", "GoldIngot" ]
+    ```
+  </Accordion>
+
+  <Accordion title="AutoEat">
+    Automatically eat food from the inventory when hunger drops below a configurable threshold.
+
+    **Config section:** `[ChatBot.AutoEat]`
+
+    <Note>
+      Requires `InventoryHandling`.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Threshold` | integer | `6` | Hunger value below which the bot eats (max hunger is 20) |
+
+    ```toml
+    [ChatBot.AutoEat]
+    Enabled = true
+    Threshold = 8
+    ```
+  </Accordion>
+
+  <Accordion title="AutoFishing">
+    Automatically cast and reel in a fishing rod. Bite detection uses bobber movement, velocity, and splash sounds for high reliability.
+
+    **Config section:** `[ChatBot.AutoFishing]`
+
+    <Note>
+      Requires `EntityHandling`. For automatic rod switching, also enable `InventoryHandling`. For position adjustment after each catch, enable `TerrainAndMovements`.
+    </Note>
+
+    <Tip>
+      A fishing rod with the **Mending** enchantment is strongly recommended so it repairs itself from fishing XP.
+    </Tip>
+
+    **Quick start:** Hold a fishing rod aimed at water before logging in with MCC, then enable `AutoFishing` in the config. You will see `Fishing will start in 3.0 second(s).` in the console.
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Auto_Start` | boolean | `true` | Start fishing automatically after joining |
+    | `Cast_Delay` | float | `0.4` | Seconds to wait before recasting after a catch |
+    | `Fishing_Delay` | float | `3.0` | Seconds to wait after joining before starting |
+    | `Fishing_Timeout` | float | `300.0` | Seconds without a bite before recasting |
+    | `Durability_Limit` | integer | `2` | Skip rods with less than this durability |
+    | `Auto_Rod_Switch` | boolean | `true` | Switch to a new rod when the current one breaks |
+    | `Enable_Velocity_Detection` | boolean | `true` | Use velocity packets for bite detection |
+    | `Enable_Sound_Detection` | boolean | `true` | Use splash sounds for bite detection |
+    | `Enable_Move` | boolean | `false` | Change position/angle after each catch |
+
+    ```toml
+    [ChatBot.AutoFishing]
+    Enabled = true
+    Auto_Start = true
+    Auto_Rod_Switch = true
+    Durability_Limit = 5
+    ```
+  </Accordion>
+
+  <Accordion title="Farmer">
+    Plant, break, and bonemeal crops automatically. Supports beetroot, carrot, melon, netherwart, pumpkin, potato, and wheat.
+
+    **Config section:** `[ChatBot.Farmer]`
+
+    <Note>
+      Requires `TerrainAndMovements` and `InventoryHandling`.
+    </Note>
+
+    <Warning>
+      This bot is experimental. It was primarily tested on 1.19.2. Some edge cases remain such as missed bonemealing and rare farmland-breaking. Keep farming areas flat and fenced.
+    </Warning>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Delay_Between_Tasks` | integer | `1` | Seconds between each task (minimum 1) |
+
+    **Commands:**
+    ```
+    /farmer start <crop type> [radius:<blocks>] [unsafe:<true/false>] [teleport:<true/false>] [debug:<true/false>]
+    /farmer stop
+    ```
+
+    ```toml
+    [ChatBot.Farmer]
+    Enabled = true
+    Delay_Between_Tasks = 1
+    ```
+
+    Then in-game: `/farmer start wheat radius:40`
+  </Accordion>
+
+  <Accordion title="FollowPlayer">
+    Follow a specific player around the world using pathfinding.
+
+    **Config section:** `[ChatBot.FollowPlayer]`
+
+    <Note>
+      Requires `TerrainAndMovements` and `EntityHandling`. The bot may lag behind due to pathfinding speed; walk at a normal pace and pause occasionally to let it catch up.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Update_Limit` | float | `1.5` | Calculation rate in seconds |
+    | `Stop_At_Distance` | float | `3.0` | Stop following when within this many blocks |
+
+    ```toml
+    [ChatBot.FollowPlayer]
+    Enabled = true
+    Stop_At_Distance = 3.0
+    ```
+  </Accordion>
+
+  <Accordion title="ItemsCollector">
+    Walk to and collect dropped items on the ground within a configurable radius.
+
+    **Config section:** `[ChatBot.ItemsCollector]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Collect_All_Item_Types` | boolean | `false` | Collect every item type regardless of whitelist |
+    | `Items_Whitelist` | array of strings | `[ "Diamond", "NetheriteIngot" ]` | Items to target (when `Collect_All_Item_Types` is false) |
+    | `Delay_Between_Tasks` | integer | `300` | Milliseconds between scans (recommended: 300-500) |
+    | `Collection_Radius` | double | `30.0` | Block radius in which to look for items |
+    | `Always_Return_To_Start` | boolean | `true` | Return to starting position when no items remain |
+    | `Prioritize_Clusters` | boolean | `true` | Go to item clusters first instead of the nearest item |
+
+    ```toml
+    [ChatBot.ItemsCollector]
+    Enabled = true
+    Collect_All_Item_Types = false
+    Items_Whitelist = [ "Diamond", "GoldIngot" ]
+    Collection_Radius = 20.0
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Information
+
+<AccordionGroup>
+  <Accordion title="Map">
+    Render in-game item map data in the console or save it to `.bmp` image files. Can relay rendered maps to Discord via the Discord Bridge bot.
+
+    **Config section:** `[ChatBot.Map]`
+
+    **Commands:** `/maps list`, `/maps render <id>`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Render_In_Console` | boolean | `true` | Render the map in the MCC console |
+    | `Save_To_File` | boolean | `false` | Save rendered maps as `.bmp` files |
+    | `Auto_Render_On_Update` | boolean | `false` | Auto-render when a map packet is received |
+    | `Delete_All_On_Unload` | boolean | `true` | Delete rendered files when the bot unloads |
+    | `Notify_On_First_Update` | boolean | `false` | Notify when a map is received for the first time |
+    | `Resize_Rendered_Image` | boolean | `false` | Resize saved images |
+    | `Resize_To` | integer | `512` | Target pixel size when resizing |
+    | `Send_Rendered_To_Discord` | boolean | `false` | Send rendered images to Discord via Discord Bridge |
+
+    ```toml
+    [ChatBot.Map]
+    Enabled = true
+    Render_In_Console = true
+    Save_To_File = true
+    ```
+  </Accordion>
+
+  <Accordion title="PlayerListLogger">
+    Periodically write the list of online players to a text file.
+
+    **Config section:** `[ChatBot.PlayerListLogger]`
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `File` | string | `"playerlog.txt"` | Path to the player list log file |
+    | `Delay` | float | `60.0` | How often (in seconds) to write the list |
+
+    ```toml
+    [ChatBot.PlayerListLogger]
+    Enabled = true
+    Delay = 60.0
+    File = "playerlog.txt"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Messaging
+
+<AccordionGroup>
+  <Accordion title="HangmanGame">
+    A classic Hangman word game playable in Minecraft chat. One of the original example bots written for MCC to demonstrate ChatBot capabilities.
+
+    **Config section:** `[ChatBot.HangmanGame]`
+
+    Set up a word list file, add yourself to `botowners` in the MCC config, then send `/tell <bot username> start` in-game to begin.
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `English` | boolean | `true` | Use English word list |
+    | `FileWords_EN` | string | `"hangman-en.txt"` | Path to the English word list file |
+    | `FileWords_FR` | string | `"hangman-fr.txt"` | Path to the French word list file |
+
+    ```toml
+    [ChatBot.HangmanGame]
+    Enabled = true
+    English = true
+    FileWords_EN = "hangman-en.txt"
+    ```
+  </Accordion>
+
+  <Accordion title="Mailer">
+    Store and relay messages between players, similar to a server-side mail plugin. Messages are saved when recipients are offline and delivered when they join.
+
+    **Config section:** `[ChatBot.Mailer]`
+
+    Players interact with the bot via private messages:
+    - `/tell <Bot> mail [RECIPIENT] [MESSAGE]` — send a mail
+    - `/tell <Bot> tellonym [RECIPIENT] [MESSAGE]` — send an anonymous mail
+
+    MCC console commands: `/mailer getmails`, `/mailer addignored [NAME]`, `/mailer removeignored [NAME]`, `/mailer getignored`
+
+    <Warning>
+      The bot identifies players by name, not UUID. A nickname plugin or Minecraft rename can cause mail to be delivered to the wrong player. Server admins can also spoof private messages.
+    </Warning>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `DatabaseFile` | string | `"MailerDatabase.ini"` | Path to the mail storage file |
+    | `IgnoreListFile` | string | `"MailerIgnoreList.ini"` | Path to the ignored-players file |
+    | `PublicInteractions` | boolean | `false` | Allow interactions via public chat in addition to private messages |
+    | `MaxMailsPerPlayer` | integer | `10` | Maximum stored mails per player |
+    | `MaxDatabaseSize` | integer | `10000` | Maximum database file size in KB |
+    | `MailRetentionDays` | integer | `30` | Days to retain stored mails |
+
+    ```toml
+    [ChatBot.Mailer]
+    Enabled = true
+    MaxMailsPerPlayer = 10
+    MailRetentionDays = 30
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Remote Access & Bridges
+
+<AccordionGroup>
+  <Accordion title="DiscordBridge">
+    Send and receive Minecraft chat messages and execute MCC commands through a Discord channel.
+
+    **Config section:** `[ChatBot.DiscordBridge]`
+
+    **Setup:** Create a Discord application at the [Discord Developer Portal](https://discord.com/developers/applications/), add a bot, enable Message Content Intent, Server Members Intent, and Presence Intent, then invite it to your server. Copy the bot token, guild ID, and channel ID into the MCC config.
+
+    In Discord, prefix messages with `.` to run them as MCC commands (e.g., `.move 145 64 832`). Plain text is sent as chat.
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Token` | string | — | Discord bot token |
+    | `GuildId` | unsigned long | — | Discord server (guild) ID |
+    | `ChannelId` | unsigned long | — | Discord channel ID |
+    | `OwnersIds` | array of unsigned long | — | Discord user IDs allowed to send commands |
+    | `Message_Send_Timeout` | integer | `3` | Seconds to wait before giving up on a send |
+    | `Allow_Other_Bot_Messages` | boolean | `false` | Relay messages from other bots in the channel |
+    | `PrivateMessageFormat` | string | `"**[Private Message]** {username}: {message}"` | Format for private message notifications |
+    | `PublicMessageFormat` | string | `"{username}: {message}"` | Format for public chat messages |
+
+    ```toml
+    [ChatBot.DiscordBridge]
+    Enabled = true
+    Token = "your-bot-token-here"
+    GuildId = 123456789012345678
+    ChannelId = 987654321098765432
+    OwnersIds = [ 111222333444555666 ]
+    ```
+  </Accordion>
+
+  <Accordion title="DiscordRpc">
+    Show your current Minecraft session as a Discord Rich Presence status, displaying server address, health, dimension, coordinates, gamemode, and elapsed time.
+
+    **Config section:** `[ChatBot.DiscordRpc]`
+
+    <Warning>
+      Discord RPC uses a local IPC socket. MCC and Discord must be running on the same machine.
+    </Warning>
+
+    **Setup:** Create a Discord application, copy the Application ID, and paste it into `ApplicationId`. Optionally upload art assets under the Rich Presence tab and reference their keys in `LargeImageKey`/`SmallImageKey`.
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `ApplicationId` | string | — | Discord Application ID |
+    | `PresenceDetails` | string | `"Playing on {server_host}:{server_port}"` | Top line of the Rich Presence display |
+    | `PresenceState` | string | `"{dimension} - HP: {health}/{max_health}"` | Second line of the Rich Presence display |
+    | `LargeImageKey` | string | `"mcc_icon"` | Key of the large image asset |
+    | `ShowServerAddress` | boolean | `true` | Show server address in the presence |
+    | `ShowCoordinates` | boolean | `true` | Show player coordinates |
+    | `ShowHealth` | boolean | `true` | Show health and food level |
+    | `ShowElapsedTime` | boolean | `true` | Show connection elapsed time |
+    | `UpdateIntervalSeconds` | integer | `10` | How often to refresh (Discord caps updates at 15 s) |
+
+    Available placeholders for text fields: `{server_host}`, `{server_port}`, `{username}`, `{health}`, `{max_health}`, `{food}`, `{dimension}`, `{gamemode}`, `{x}`, `{y}`, `{z}`, `{player_count}`, `{protocol}`.
+
+    ```toml
+    [ChatBot.DiscordRpc]
+    Enabled = true
+    ApplicationId = "your-application-id"
+    ```
+  </Accordion>
+
+  <Accordion title="TelegramBridge">
+    Send and receive Minecraft messages and MCC commands via a Telegram bot DM, or forward chat to a Telegram channel.
+
+    **Config section:** `[ChatBot.TelegramBridge]`
+
+    **Setup:**
+    1. Message @botfather on Telegram and use `/newbot` to create a bot and get an API token.
+    2. Paste the token into `Token`.
+    3. Start a DM with your bot and send `.chatid` to get your chat ID.
+    4. Add the chat ID to both `ChannelId` and `Authorized_Chat_Ids`.
+
+    <Warning>
+      Unauthorized users who discover your bot can send messages and commands unless you populate `Authorized_Chat_Ids`. Keep your API token private.
+    </Warning>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Token` | string | — | Telegram bot API token |
+    | `ChannelId` | string | — | Channel ID for outgoing messages |
+    | `Authorized_Chat_Ids` | array of strings | `[]` | Chat IDs allowed to send commands |
+    | `Message_Send_Timeout` | integer | `3` | Seconds to wait before cancelling a send |
+    | `PrivateMessageFormat` | string | `"*(Private Message)* {username}: {message}"` | Format for private message notifications |
+    | `PublicMessageFormat` | string | `"{username}: {message}"` | Format for public chat |
+
+    ```toml
+    [ChatBot.TelegramBridge]
+    Enabled = true
+    Token = "your-telegram-bot-token"
+    ChannelId = "2627844670"
+    Authorized_Chat_Ids = [ "2627844670" ]
+    ```
+  </Accordion>
+
+  <Accordion title="RemoteControl">
+    Execute MCC console commands by sending private messages to the bot in-game via `/tell`.
+
+    **Config section:** `[ChatBot.RemoteControl]`
+
+    You must configure `ChatFormat` correctly and add yourself to `botowners` in the MCC config for the bot to recognize your commands.
+
+    <Warning>
+      Server admins can spoof private messages using `/tellraw` or `/nick`. Enable this only on servers you trust.
+    </Warning>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `AutoTpaccept` | boolean | `true` | Automatically accept teleport requests from bot owners |
+    | `AutoTpaccept_Everyone` | boolean | `false` | Automatically accept teleport requests from all players |
+
+    ```toml
+    [ChatBot.RemoteControl]
+    Enabled = true
+    AutoTpaccept = true
+    AutoTpaccept_Everyone = false
+    ```
+  </Accordion>
+
+  <Accordion title="McpServer">
+    Expose a local MCP (Model Context Protocol) HTTP endpoint so AI agents such as Claude Code, OpenCode, Codex, and Cursor can control MCC directly.
+
+    **Config section:** `[ChatBot.McpServer]`
+
+    The MCP server starts after MCC joins the game and listens on `http://127.0.0.1:33333/mcp` by default. AI agents connect to this endpoint to read chat, check players, move around, inspect inventories, and interact with entities.
+
+    <Warning>
+      This feature is experimental and still being tested and polished. Secure it with an auth token even for local use.
+    </Warning>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Transport.BindHost` | string | `"127.0.0.1"` | IP to bind; use `0.0.0.0` to expose to the network |
+    | `Transport.Port` | integer | `33333` | TCP port for the HTTP endpoint |
+    | `Transport.Route` | string | `"/mcp"` | HTTP path for the MCP endpoint |
+    | `Transport.RequireAuthToken` | boolean | `false` | Require a bearer token (recommended: `true`) |
+    | `Transport.AuthTokenEnvVar` | string | `"MCC_MCP_AUTH_TOKEN"` | Environment variable holding the token |
+    | `Capabilities.SessionStatus` | boolean | `true` | Session, server, chat-history, and status tools |
+    | `Capabilities.ChatAndCommands` | boolean | `true` | Chat, commands, respawn, and direct-control tools |
+    | `Capabilities.Movement` | boolean | `true` | Pathfinding, movement, and nearby-block query tools |
+    | `Capabilities.Inventory` | boolean | `true` | Inventory, container, and item management tools |
+    | `Capabilities.EntityWorld` | boolean | `true` | Entity queries, sign search, and dropped-item tools |
+
+    ```toml
+    [ChatBot.McpServer]
+    Enabled = true
+    Transport = { BindHost = "127.0.0.1", Port = 33333, Route = "/mcp", RequireAuthToken = true, AuthTokenEnvVar = "MCC_MCP_AUTH_TOKEN" }
+    Capabilities = { SessionStatus = true, ChatAndCommands = true, Movement = true, Inventory = true, EntityWorld = true }
+    ```
+
+    ```bash
+    export MCC_MCP_AUTH_TOKEN="your-secret-token"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Recording & Scheduling
+
+<AccordionGroup>
+  <Accordion title="ReplayCapture">
+    Record gameplay sessions and play them back later using the [Replay Mod](https://www.replaymod.com/).
+
+    **Config section:** `[ChatBot.ReplayCapture]`
+
+    <Warning>
+      Always stop recording with `/replay stop` or exit MCC gracefully with `/quit`. Closing the application forcefully may corrupt the replay file. This bot does not work on Minecraft 1.19.
+    </Warning>
+
+    <Note>
+      Due to technical limitations, the MCC client player will not appear in the replay file.
+    </Note>
+
+    | Setting | Type | Default | Description |
+    |---|---|---|---|
+    | `Enabled` | boolean | `false` | Enable or disable the bot |
+    | `Backup_Interval` | float | `300.0` | Seconds between auto-saves; `-1` to disable |
+
+    **Commands:** `/replay start`, `/replay stop`
+
+    ```toml
+    [ChatBot.ReplayCapture]
+    Enabled = true
+    Backup_Interval = 300.0
+    ```
+  </Accordion>
+
+  <Accordion title="ScriptScheduler">
+    Schedule MCC commands and scripts to run on server join, at specific times of day, or on a repeating interval.
+
+    **Config section:** `[ChatBot.ScriptScheduler]`
+
+    Each scheduled task is defined as a `[[ChatBot.ScriptScheduler.TaskList]]` subsection.
+
+    | Setting | Type | Description |
+    |---|---|---|
+    | `Task_Name` | string | Human-readable name for the task |
+    | `Trigger_On_First_Login` | boolean | Run once on the first login only |
+    | `Trigger_On_Login` | boolean | Run on every login |
+    | `Trigger_On_Times` | inline table | Run at specific times: `{ Enable = true, Times = [ 14:00:00 ] }` |
+    | `Trigger_On_Interval` | inline table | Run on a recurring interval: `{ Enable = true, MinTime = 30.0, MaxTime = 60.0 }` |
+    | `Action` | string | The MCC command or script to run |
+
+    ```toml
+    [ChatBot.ScriptScheduler]
+    Enabled = true
+
+        [[ChatBot.ScriptScheduler.TaskList]]
+        Task_Name = "Login command"
+        Trigger_On_First_Login = false
+        Trigger_On_Login = true
+        Trigger_On_Times = { Enable = false, Times = [] }
+        Trigger_On_Interval = { Enable = false, MinTime = 1.0, MaxTime = 10.0 }
+        Action = "send /login mypassword"
+
+        [[ChatBot.ScriptScheduler.TaskList]]
+        Task_Name = "Daily announcement"
+        Trigger_On_First_Login = false
+        Trigger_On_Login = false
+        Trigger_On_Times = { Enable = true, Times = [ 14:00:00 ] }
+        Trigger_On_Interval = { Enable = false, MinTime = 1.0, MaxTime = 1.0 }
+        Action = "send Good afternoon everyone!"
+    ```
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,508 @@
+---
+title: 'Discord, Telegram, and Remote Control Bots'
+description: 'Full configuration reference for DiscordBridge, DiscordRpc, TelegramBridge, RemoteControl, ReplayCapture, and McpServer built-in bots in MCC.'
+---
+
+These bots connect MCC to external platforms or allow you to control the client remotely. The bridge bots relay Minecraft chat to Discord or Telegram and let you send messages and commands back. RemoteControl accepts MCC commands via in-game private messages. ReplayCapture records game sessions for Replay Mod. McpServer exposes MCC to AI agents via the Model Context Protocol.
+
+---
+
+## DiscordBridge
+
+Send and receive Minecraft chat messages, and run MCC commands from a Discord channel.
+
+**Config section:** `[ChatBot.DiscordBridge]`
+
+<Warning>
+  Your bot token grants full control over your Discord bot. Never share it publicly or commit it to version control.
+</Warning>
+
+### Setup
+
+<Steps>
+  <Step title="Create a Discord application">
+    Go to the [Discord Developer Portal](https://discord.com/developers/applications/), click **New Application**, and give it a name.
+  </Step>
+  <Step title="Add a bot user">
+    Open the **Bot** tab, click **Add Bot**, then click **Reset Token** and copy the token. Paste it into `Token` in your MCC config.
+  </Step>
+  <Step title="Enable required intents">
+    On the **Bot** tab, enable **Message Content Intent**, **Server Members Intent**, and **Presence Intent**.
+  </Step>
+  <Step title="Invite the bot to your server">
+    Use the [Discord Permissions Calculator](https://discordapi.com/permissions.html). Paste your Application ID, check **Administrator**, and follow the generated invite link.
+  </Step>
+  <Step title="Collect IDs">
+    Enable **Developer Mode** in Discord (**Settings > Advanced**). Right-click your server and copy its ID into `GuildId`. Right-click the target channel and copy its ID into `ChannelId`. Right-click your own username in that channel and copy your user ID into `OwnersIds`.
+  </Step>
+</Steps>
+
+**Usage:** Type a message in the Discord channel to send it to Minecraft chat. Prefix a message with `.` to run it as an MCC command, for example `.move 145 64 832`.
+
+```toml
+[ChatBot.DiscordBridge]
+Enabled = false
+Token = "your bot token here"
+GuildId = 1018553894831403028
+ChannelId = 1018565295654326364
+OwnersIds = [ 978757810781323276 ]
+Message_Send_Timeout = 3
+Allow_Other_Bot_Messages = false
+Relay_All_Messages = false
+Message_Aggregation_Interval = 3.0
+PrivateMessageFormat = "**[Private Message]** {username}: {message}"
+PublicMessageFormat = "{username}: {message}"
+TeleportRequestMessageFormat = "A new Teleport Request from **{username}**!"
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the DiscordBridge bot.
+</ParamField>
+
+<ParamField path="Token" type="string" required>
+  Your Discord bot token. Obtain this from the **Bot** tab of your Discord application in the [Developer Portal](https://discord.com/developers/applications/).
+</ParamField>
+
+<ParamField path="GuildId" type="unsigned long" required>
+  The ID of the Discord server (guild) where you invited the bot.
+</ParamField>
+
+<ParamField path="ChannelId" type="unsigned long" required>
+  The ID of the Discord channel where messages are relayed.
+</ParamField>
+
+<ParamField path="OwnersIds" type="unsigned long[]" required>
+  List of Discord user IDs that are allowed to send commands and messages through the bridge.
+</ParamField>
+
+<ParamField path="Message_Send_Timeout" type="integer" default="3">
+  Seconds to wait for a Discord message to be delivered before giving up.
+</ParamField>
+
+<ParamField path="Allow_Other_Bot_Messages" type="boolean" default="false">
+  When `true`, messages from other Discord bots in the channel are relayed to Minecraft. The bridge always ignores its own messages to prevent loops.
+</ParamField>
+
+<ParamField path="Relay_All_Messages" type="boolean" default="false">
+  When `true`, relay all MCC console output to Discord, not just chat messages.
+</ParamField>
+
+<ParamField path="Message_Aggregation_Interval" type="double" default="3.0">
+  Seconds to buffer incoming Minecraft messages before sending them as a single Discord message. Set to `0` to disable buffering and send each message immediately.
+</ParamField>
+
+<ParamField path="PrivateMessageFormat" type="string" default="**[Private Message]** {username}: {message}">
+  Format for private messages relayed to Discord. Supported placeholders: `{username}`, `{message}`, `{timestamp}`. Do not modify the placeholder names.
+</ParamField>
+
+<ParamField path="PublicMessageFormat" type="string" default="{username}: {message}">
+  Format for public Minecraft chat messages relayed to Discord. Supported placeholders: `{username}`, `{message}`, `{timestamp}`.
+</ParamField>
+
+<ParamField path="TeleportRequestMessageFormat" type="string" default="A new Teleport Request from **{username}**!">
+  Format for teleport request notifications relayed to Discord. Supported placeholder: `{username}`.
+</ParamField>
+
+---
+
+## DiscordRpc
+
+Display your current Minecraft session as a Discord Rich Presence status.
+
+**Config section:** `[ChatBot.DiscordRpc]`
+
+<Warning>
+  Discord RPC uses a local IPC socket. MCC and the Discord client must run on the same machine.
+</Warning>
+
+### Setup
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications/) and create a new application.
+2. Copy the **Application ID** from the **General Information** page and paste it into `ApplicationId`.
+3. Optionally, upload an image under **Rich Presence > Art Assets** and use its key in `LargeImageKey` or `SmallImageKey`.
+4. Start MCC with Discord already running.
+
+<Note>
+  Discord accepts Rich Presence updates at most once every 15 seconds, so status changes may appear with a short delay.
+</Note>
+
+```toml
+[ChatBot.DiscordRpc]
+Enabled = false
+ApplicationId = ""
+PresenceDetails = "Playing on {server_host}:{server_port}"
+PresenceState = "{dimension} - HP: {health}/{max_health}"
+LargeImageKey = "mcc_icon"
+LargeImageText = "Minecraft Console Client"
+SmallImageKey = ""
+SmallImageText = ""
+ShowServerAddress = true
+ShowCoordinates = true
+ShowHealth = true
+ShowDimension = true
+ShowGamemode = true
+ShowElapsedTime = true
+ShowPlayerCount = true
+UpdateIntervalSeconds = 10
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the DiscordRpc bot.
+</ParamField>
+
+<ParamField path="ApplicationId" type="string" required>
+  Your Discord Application ID from the [Developer Portal](https://discord.com/developers/applications/).
+</ParamField>
+
+<ParamField path="PresenceDetails" type="string" default="Playing on {server_host}:{server_port}">
+  The top line of the Discord Rich Presence status. Supports placeholders listed below.
+</ParamField>
+
+<ParamField path="PresenceState" type="string" default="{dimension} - HP: {health}/{max_health}">
+  The second line of the Rich Presence status. Supports placeholders listed below.
+</ParamField>
+
+<ParamField path="LargeImageKey" type="string" default="mcc_icon">
+  Asset key for the large presence image. The default value `mcc_icon` references a built-in MCC icon. Leave empty to show no image.
+</ParamField>
+
+<ParamField path="LargeImageText" type="string" default="Minecraft Console Client">
+  Tooltip text shown when hovering over the large image. Supports placeholders.
+</ParamField>
+
+<ParamField path="SmallImageKey" type="string" default="">
+  Asset key for the small presence image. Leave empty to hide it.
+</ParamField>
+
+<ParamField path="SmallImageText" type="string" default="">
+  Tooltip text for the small image. Supports placeholders.
+</ParamField>
+
+<ParamField path="ShowServerAddress" type="boolean" default="true">
+  When `false`, `{server_host}` and `{server_port}` are replaced with `Hidden` and `****`.
+</ParamField>
+
+<ParamField path="ShowCoordinates" type="boolean" default="true">
+  When `false`, `{x}`, `{y}`, and `{z}` are replaced with `?`.
+</ParamField>
+
+<ParamField path="ShowHealth" type="boolean" default="true">
+  When `false`, `{health}`, `{max_health}`, and `{food}` are replaced with `?`.
+</ParamField>
+
+<ParamField path="ShowDimension" type="boolean" default="true">
+  When `false`, `{dimension}` is replaced with `Hidden`.
+</ParamField>
+
+<ParamField path="ShowGamemode" type="boolean" default="true">
+  When `false`, `{gamemode}` is replaced with `Hidden`.
+</ParamField>
+
+<ParamField path="ShowElapsedTime" type="boolean" default="true">
+  Show how long you have been connected as an elapsed-time indicator in the Discord presence.
+</ParamField>
+
+<ParamField path="ShowPlayerCount" type="boolean" default="true">
+  Show the number of online players as a party-size indicator.
+</ParamField>
+
+<ParamField path="UpdateIntervalSeconds" type="integer" default="10">
+  How often (in seconds) to push presence updates to Discord. Minimum is `1`. Values below `15` have no visible effect because Discord throttles updates to once per 15 seconds.
+</ParamField>
+
+### Placeholders
+
+The following placeholders can be used in `PresenceDetails`, `PresenceState`, `LargeImageText`, and `SmallImageText`:
+
+| Placeholder      | Description                                                     |
+| ---------------- | --------------------------------------------------------------- |
+| `{server_host}`  | Server hostname                                                 |
+| `{server_port}`  | Server port                                                     |
+| `{username}`     | Your Minecraft username                                         |
+| `{health}`       | Current health                                                  |
+| `{max_health}`   | Maximum health (always `20`)                                    |
+| `{food}`         | Current food level                                              |
+| `{dimension}`    | Current dimension name, e.g. `Overworld`                        |
+| `{gamemode}`     | Current gamemode, e.g. `Survival`                               |
+| `{x}`            | X coordinate                                                    |
+| `{y}`            | Y coordinate                                                    |
+| `{z}`            | Z coordinate                                                    |
+| `{player_count}` | Number of players currently online                              |
+| `{protocol}`     | Minecraft protocol version number                               |
+
+---
+
+## TelegramBridge
+
+Send and receive Minecraft chat messages, and run MCC commands from a Telegram bot.
+
+**Config section:** `[ChatBot.TelegramBridge]`
+
+<Warning>
+  Your Telegram bot API token grants full control over the bot. Never share it publicly or commit it to version control.
+</Warning>
+
+<Warning>
+  If you do not add your chat ID to `Authorized_Chat_Ids`, anyone who finds your bot can send commands to MCC.
+</Warning>
+
+### Setup
+
+1. Open Telegram and find **@BotFather**. Send `/newbot` and follow the prompts.
+2. Copy the API token and paste it into `Token`.
+3. Start MCC, find your new bot in Telegram, and open a DM with it.
+4. Click **Start**, then send `.chatid` to get your chat ID.
+5. Add the chat ID to both `ChannelId` and `Authorized_Chat_Ids`.
+
+```toml
+[ChatBot.TelegramBridge]
+Enabled = false
+Token = "your bot token here"
+ChannelId = ""
+Authorized_Chat_Ids = []
+Message_Send_Timeout = 3
+PrivateMessageFormat = "*(Private Message)* {username}: {message}"
+PublicMessageFormat = "{username}: {message}"
+TeleportRequestMessageFormat = "A new Teleport Request from **{username}**!"
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the TelegramBridge bot.
+</ParamField>
+
+<ParamField path="Token" type="string" required>
+  Your Telegram bot API token from @BotFather.
+</ParamField>
+
+<ParamField path="ChannelId" type="string">
+  The Telegram chat or channel ID where Minecraft messages are posted. Use `.chatid` in a DM with the bot to retrieve your ID.
+</ParamField>
+
+<ParamField path="Authorized_Chat_Ids" type="long[]">
+  List of numeric chat IDs that may send messages and commands to MCC. These must be numbers, not strings. Use `.chatid` to find your ID.
+
+  ```toml
+  Authorized_Chat_Ids = [ 2627844670 ]
+  ```
+</ParamField>
+
+<ParamField path="Message_Send_Timeout" type="integer" default="3">
+  Seconds to wait for a Telegram message to be sent before cancelling the attempt. Minimum is `1`.
+</ParamField>
+
+<ParamField path="PrivateMessageFormat" type="string" default="*(Private Message)* {username}: {message}">
+  Format for private Minecraft messages relayed to Telegram. Supported placeholders: `{username}`, `{message}`, `{timestamp}`.
+</ParamField>
+
+<ParamField path="PublicMessageFormat" type="string" default="{username}: {message}">
+  Format for public Minecraft chat messages relayed to Telegram. Supported placeholders: `{username}`, `{message}`, `{timestamp}`.
+</ParamField>
+
+<ParamField path="TeleportRequestMessageFormat" type="string" default="A new Teleport Request from **{username}**!">
+  Format for teleport request notifications relayed to Telegram. Supported placeholder: `{username}`.
+</ParamField>
+
+---
+
+## RemoteControl
+
+Run MCC internal commands by sending private messages (`/tell`) to the bot from an authorised player in Minecraft.
+
+**Config section:** `[ChatBot.RemoteControl]`
+
+<Warning>
+  Server admins can spoof private messages using `/tellraw` or `/nick`. Only enable RemoteControl on servers whose administrators you trust.
+</Warning>
+
+<Note>
+  Only players listed in `botowners` in the main MCC configuration can send commands through RemoteControl. You also need correct **Chat Format** settings for private message detection to work.
+</Note>
+
+```toml
+[ChatBot.RemoteControl]
+Enabled = false
+AutoTpaccept = true
+AutoTpaccept_Everyone = false
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the RemoteControl bot.
+</ParamField>
+
+<ParamField path="AutoTpaccept" type="boolean" default="true">
+  Automatically accept teleport requests from players listed in `botowners`.
+</ParamField>
+
+<ParamField path="AutoTpaccept_Everyone" type="boolean" default="false">
+  When `true`, accept teleport requests from any player, not just those in `botowners`. Use with caution.
+</ParamField>
+
+---
+
+## ReplayCapture
+
+Record your Minecraft session as a `.mcpr` replay file compatible with [Replay Mod](https://www.replaymod.com/).
+
+**Config section:** `[ChatBot.ReplayCapture]`
+
+<Warning>
+  This bot does not work correctly on Minecraft 1.19 due to protocol changes. Maintainers are needed.
+</Warning>
+
+<Warning>
+  Always stop the recording with `/replay stop` or exit MCC cleanly with `/quit`. Terminating the process without stopping the recording may corrupt the replay file.
+</Warning>
+
+<Note>
+  Due to technical limitations, the client player (you) will not appear in the replay file.
+</Note>
+
+**Commands:** `/replay start` and `/replay stop`
+
+```toml
+[ChatBot.ReplayCapture]
+Enabled = false
+Backup_Interval = 300.0
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the ReplayCapture bot. When `true`, recording starts automatically on login.
+</ParamField>
+
+<ParamField path="Backup_Interval" type="float" default="300.0">
+  How often in seconds to auto-save (checkpoint) the replay file during recording. Set to `-1` to disable periodic saves.
+</ParamField>
+
+---
+
+## McpServer
+
+Expose MCC to AI agents such as Claude Code, Codex, Cursor, and OpenCode via the [Model Context Protocol](https://modelcontextprotocol.io/). Once enabled, an AI agent can read chat, inspect the world, move the player, manage the inventory, and interact with entities through the running MCC session.
+
+**Config section:** `[ChatBot.McpServer]`
+
+<Warning>
+  This feature is experimental. Keep the bind host set to `127.0.0.1` and enable bearer-token authentication unless you intentionally want to expose the endpoint to other machines.
+</Warning>
+
+<Warning>
+  Tool availability depends on which MCC features are enabled. Movement, inventory, and entity tools require the corresponding MCC runtime features for your protocol version.
+</Warning>
+
+### Quick start
+
+```bash
+export MCC_MCP_AUTH_TOKEN="replace-me-with-a-strong-secret"
+```
+
+```toml
+[ChatBot.McpServer]
+Enabled = true
+Transport = { BindHost = "127.0.0.1", Port = 33333, Route = "/mcp", RequireAuthToken = true, AuthTokenEnvVar = "MCC_MCP_AUTH_TOKEN" }
+Capabilities = { SessionStatus = true, ChatAndCommands = true, Movement = true, Inventory = true, EntityWorld = true }
+```
+
+The server starts after the bot joins the game, not at process launch. Connect your AI client to `http://127.0.0.1:33333/mcp`.
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the McpServer bot.
+</ParamField>
+
+<ParamField path="Transport.BindHost" type="string" default="127.0.0.1">
+  Hostname or IP address the HTTP server binds to. Use `127.0.0.1` for local-only access. Set to `0.0.0.0` to expose the endpoint to other machines on your network.
+</ParamField>
+
+<ParamField path="Transport.Port" type="integer" default="33333">
+  TCP port for the embedded HTTP MCP server.
+</ParamField>
+
+<ParamField path="Transport.Route" type="string" default="/mcp">
+  HTTP path for the MCP endpoint.
+</ParamField>
+
+<ParamField path="Transport.RequireAuthToken" type="boolean" default="false">
+  When `true`, require an `Authorization: Bearer ...` header from clients. Strongly recommended for all deployments.
+</ParamField>
+
+<ParamField path="Transport.AuthTokenEnvVar" type="string" default="MCC_MCP_AUTH_TOKEN">
+  Name of the environment variable MCC reads for the bearer token when `RequireAuthToken` is `true`.
+</ParamField>
+
+<ParamField path="Capabilities.SessionStatus" type="boolean" default="true">
+  Expose session status, server info, chat history, player state, world state, and reference tools.
+</ParamField>
+
+<ParamField path="Capabilities.ChatAndCommands" type="boolean" default="true">
+  Expose chat sending, internal command execution, respawn, disconnect, and direct-control tools.
+</ParamField>
+
+<ParamField path="Capabilities.Movement" type="boolean" default="true">
+  Expose movement, pathfinding, look, block scanning, and nearby entity/player query tools.
+</ParamField>
+
+<ParamField path="Capabilities.Inventory" type="boolean" default="true">
+  Expose inventory snapshots, container interactions, window actions, item selection, and deposit/withdraw tools.
+</ParamField>
+
+<ParamField path="Capabilities.EntityWorld" type="boolean" default="true">
+  Expose entity queries, sign search, block lookup, and dropped-item pickup tools.
+</ParamField>
+
+### Connecting an AI client
+
+<AccordionGroup>
+  <Accordion title="Claude Code">
+    ```bash
+    claude mcp add --transport http mcc http://127.0.0.1:33333/mcp \
+      --header "Authorization: Bearer $MCC_MCP_AUTH_TOKEN"
+    ```
+  </Accordion>
+
+  <Accordion title="Codex">
+    ```bash
+    codex mcp add mcc --url http://127.0.0.1:33333/mcp
+    ```
+
+    Or add directly to `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.mcc]
+    url = "http://127.0.0.1:33333/mcp"
+    ```
+  </Accordion>
+
+  <Accordion title="Cursor">
+    Create or edit `~/.cursor/mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "mcc": {
+          "url": "http://127.0.0.1:33333/mcp"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="OpenCode">
+    Add to `~/.config/opencode/opencode.json` or your project-root `opencode.json`:
+
+    ```json
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": {
+        "mcc": {
+          "type": "remote",
+          "url": "http://127.0.0.1:33333/mcp",
+          "enabled": true,
+          "oauth": false,
+          "headers": {
+            "Authorization": "Bearer {env:MCC_MCP_AUTH_TOKEN}"
+          }
+        }
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>

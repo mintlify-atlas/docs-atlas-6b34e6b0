@@ -1,0 +1,59 @@
+---
+title: "Minecraft Console Client: What It Is and What It Does"
+description: "Minecraft Console Client is a cross-platform TUI for Minecraft Java Edition. Connect to servers, automate tasks, and run C# bots without launching the game."
+---
+
+Minecraft Console Client (MCC) is an open-source, cross-platform text-mode client for Minecraft Java Edition. It connects to any Java server, sends and receives chat messages, and exposes a full C# scripting API -- all without opening the Minecraft launcher. Server administrators use it to automate repetitive tasks, developers use it as a bot platform, and power users run it 24/7 on a VPS or in Docker to keep a persistent presence on a server.
+
+## What you can do with MCC
+
+MCC ships with more than 28 built-in bots covering the most common automation needs. You can also write your own bots in C# using the same API that the built-in bots use, or run lightweight scripts without any compilation step.
+
+**Chat and messaging**
+
+- Send and receive chat messages
+- Log chat history to a file
+- Get alerted on keywords with the Alerts bot
+- Auto-respond to messages with configurable patterns
+
+**Player automation**
+
+- Anti-AFK to prevent being kicked for inactivity
+- Auto Relog on disconnect
+- Auto Attack, Auto Fishing, Auto Eat, Auto Craft, Auto Drop
+- Follow Player and Items Collector bots
+
+**Scripting and extensibility**
+
+- Write bots in C# using the `ChatBot` API
+- Run text-based `.mcc` scripts without compilation
+- Schedule scripts and commands with Script Scheduler
+- Remote control via Discord Bridge, Telegram Bridge, or Remote Control bot
+
+**Infrastructure**
+
+- Docker support for containerized deployments
+- VPS-friendly with `screen` or `tmux` for background operation
+- Microsoft account authentication with full 2FA support (OAuth 2.0 device code flow)
+- Proxy support for routing traffic through HTTP or SOCKS proxies
+
+<Note>
+Some features are disabled by default and must be enabled in `MinecraftClient.ini`. Inventory handling requires Minecraft **1.8+**, terrain and movement requires **1.7.2+**, and entity handling requires **1.8+**. MCC supports protocol versions from **1.4.6 through 26.1**.
+</Note>
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Install MCC" icon="download" href="/installation">
+    Download a pre-built binary, use the one-liner installer, build from source, or run with Docker.
+  </Card>
+  <Card title="Configure MCC" icon="sliders" href="/configuration/overview">
+    Set your account, server, proxy settings, and enable the features you need.
+  </Card>
+  <Card title="Automate with bots" icon="robot" href="/automation/built-in-bots">
+    Enable and configure the 28+ built-in bots, or write your own in C#.
+  </Card>
+  <Card title="Command reference" icon="terminal" href="/reference/commands/overview">
+    Browse all internal commands available from the chat prompt or scripts.
+  </Card>
+</CardGroup>

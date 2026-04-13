@@ -1,0 +1,209 @@
+---
+title: 'MCC Configuration File Overview'
+description: 'Learn how MCC uses a TOML-based MinecraftClient.ini file to control account, server, version, console, AppVars, and scripting behavior all in one place.'
+---
+
+Minecraft Console Client stores all its settings in a single TOML configuration file named `MinecraftClient.ini`, which is created automatically the first time you run the program. You can also point MCC at a different file by passing its path as the first argument on the command line. Every option in the file is documented inline with comments, so opening it in a text editor gives you a full reference without leaving your terminal.
+
+## File format
+
+The configuration file uses the [TOML format](https://toml.io/en/). Settings are grouped into named sections wrapped in square brackets. Each setting is a key-value pair separated by `=`. Lines that begin with `#` are comments and have no effect on behavior.
+
+```toml
+[SectionNameHere]
+Setting_Name = "this is some name"
+Setting_Something = 15
+
+[OtherSection]
+# This is a comment explaining what this setting/option does
+Other_Setting = true  # This also is a comment
+
+[ThirdSection]
+Section_Enabled = true
+colors = [ "red", "yellow", "green" ]
+
+[ThirdSection.Subsection]
+Coordinate = { x = 145, y = 64, z = 2045 }
+```
+
+For the full syntax and data types, see the [official TOML documentation](https://toml.io/en/v1.0.0).
+
+<Tip>
+  To reset all settings to their defaults, delete `MinecraftClient.ini` and restart MCC. The file is regenerated with fresh defaults and inline descriptions.
+</Tip>
+
+## Resetting or using a custom config path
+
+To use a custom config file, pass its path as the first argument when starting MCC:
+
+```bash
+MinecraftClient.exe /path/to/my-config.ini
+```
+
+To reset to defaults, simply delete the existing file:
+
+```bash
+# Linux / macOS
+rm MinecraftClient.ini
+
+# Windows
+del MinecraftClient.ini
+```
+
+MCC will create a new `MinecraftClient.ini` with all defaults the next time it starts.
+
+## Main.General section
+
+The `[Main.General]` section holds the most essential settings: which account to use, which server to connect to, and which Minecraft version to target.
+
+<ParamField path="Account" type="inline table">
+  Your login credentials. For Microsoft accounts, only `Login` (your email) is required. For offline accounts, set `Password` to `-`. For Yggdrasil accounts, provide both `Login` and `Password`.
+
+  ```toml
+  # Microsoft account
+  Account = { Login = "player@example.com" }
+
+  # Offline account
+  Account = { Login = "Steve", Password = "-" }
+  ```
+</ParamField>
+
+<ParamField path="Server" type="inline table">
+  The address of the game server. `Host` accepts a domain name, an IP address, or a server alias defined in `[Main.Advanced.ServerList]`. `Port` is optional and defaults to `25565`.
+
+  ```toml
+  Server = { Host = "mysupercoolserver.com" }
+  Server = { Host = "192.168.1.27", Port = 12345 }
+  Server = { Host = "ServerAlias1" }
+  ```
+</ParamField>
+
+<ParamField path="AccountType" type="string" default="microsoft">
+  The authentication protocol to use. Valid values are `microsoft`, `mojang`, and `yggdrasil`. Use `yggdrasil` for custom authlib-injector servers.
+</ParamField>
+
+<ParamField path="MinecraftVersion" type="string" default="auto">
+  The Minecraft version to connect with, in `1.X.X` format. Use `auto` to let MCC detect the version from the server. Supported range is `1.4.6` through `26.1`.
+
+  ```toml
+  MinecraftVersion = "1.21.4"
+  ```
+</ParamField>
+
+## Main.Advanced section
+
+The `[Main.Advanced]` section controls runtime behavior such as language, bot owners, terrain handling, and session caching.
+
+<ParamField path="Language" type="string" default="en_us">
+  The language code for chat translation files. MCC loads `en_GB.lang` from your local Minecraft installation when available, or downloads it from Mojang. Use this to switch to another locale.
+
+  ```toml
+  Language = "en_us"
+  ```
+</ParamField>
+
+<ParamField path="BotOwners" type="array of strings" default='["Player1", "Player2"]'>
+  Player names that are allowed to control bots via remote commands. Separate names with commas inside the array.
+
+  ```toml
+  BotOwners = [ "milutinke", "bradbyte", "BruceChen" ]
+  ```
+
+  <Warning>
+    On Minecraft versions older than 1.19, server operators can impersonate players in chat, which means they could send commands on behalf of any name listed here.
+  </Warning>
+</ParamField>
+
+<ParamField path="TerrainAndMovements" type="boolean" default="false">
+  Enable terrain tracking and movement commands such as `/move`. Required by bots that navigate the world.
+
+  <Warning>
+    Not supported on Minecraft `1.4.6` through `1.6`.
+  </Warning>
+</ParamField>
+
+<ParamField path="InventoryHandling" type="boolean" default="false">
+  Enable inventory access and the `/inventory` command.
+</ParamField>
+
+<ParamField path="EntityHandling" type="boolean" default="false">
+  Enable tracking and interaction with entities (players, mobs, minecarts, etc.).
+</ParamField>
+
+<ParamField path="SessionCache" type="string" default="disk">
+  Where MCC stores the authentication session token. `disk` saves it to a file so you stay logged in across restarts. `memory` keeps it in RAM until the process exits. `none` disables caching and requires re-authentication every time.
+</ParamField>
+
+<ParamField path="AutoRespawn" type="boolean" default="false">
+  Automatically respawn when your character dies. Make sure the spawn point is safe before enabling this.
+</ParamField>
+
+<ParamField path="TcpTimeout" type="integer" default="30">
+  TCP connection timeout in seconds. Only change this if you are connecting to a slow or high-latency server.
+</ParamField>
+
+<ParamField path="MessageCooldown" type="float" default="1.0">
+  Minimum delay in seconds between outgoing chat messages. Increase this if the server kicks you for spam.
+</ParamField>
+
+## Server and account lists
+
+### Main.Advanced.ServerList
+
+The `[Main.Advanced.ServerList]` section lets you define named server aliases for fast reconnection.
+
+```toml
+[Main.Advanced.ServerList]
+ServerAlias1 = { Host = "mc.awesomeserver.com" }
+ServerAlias2 = { Host = "192.168.1.27", Port = 12345 }
+```
+
+Connect using the alias:
+
+```
+/connect ServerAlias1
+```
+
+Aliases cannot contain dots or spaces, and `localhost` is reserved.
+
+### Main.Advanced.AccountList
+
+The `[Main.Advanced.AccountList]` section stores multiple accounts so you can switch between them without editing the config.
+
+```toml
+[Main.Advanced.AccountList]
+Player1 = { Login = "playerone@email.com", Password = "thepassword" }
+```
+
+Switch accounts with:
+
+```
+/connect <serverip> Player1
+```
+
+## AppVar section
+
+The `[AppVar.VarStirng]` section lets you define custom variables for use in scripts, bots, and other config fields.
+
+```toml
+[AppVar.VarStirng]
+your_var = "your_value"
+"your var 2" = "your value 2"
+```
+
+Reference a variable anywhere MCC accepts variable substitution with `%your_var%`.
+
+<Note>
+  The following variable names are reserved and read-only: `%username%`, `%login%`, `%serverip%`, `%serverport%`, `%datetime%`, and `%players%`.
+</Note>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/configuration/authentication">
+    Microsoft, offline, and Yggdrasil account setup.
+  </Card>
+  <Card title="Proxy, logging, and advanced settings" icon="sliders" href="/configuration/proxy-and-logging">
+    Proxy configuration, log filtering, and console behavior.
+  </Card>
+</CardGroup>

@@ -1,0 +1,212 @@
+---
+title: "Create C# Bots with the ChatBot API"
+description: "Write powerful MCC automation bots in C# using the ChatBot base class and Roslyn scripting. No IDE needed — just a text editor and basic C# knowledge."
+---
+
+Minecraft Console Client includes a full C# scripting engine powered by Roslyn. Scripts are compiled at runtime from plain `.cs` files, so you need no IDE or build system — just a text editor. Each script defines a class that extends `ChatBot`, overrides lifecycle event methods, and calls MCC API methods to read game state and take actions. This gives you full access to inventory, entities, world data, movement, and chat.
+
+## Requirements
+
+- Basic knowledge of C#
+- A text editor
+- No IDE required
+
+If you are new to C#, the following resources are good starting points:
+
+- [C# Crash Course by Teddy Smit (YouTube)](https://www.youtube.com/watch?v=67oWw9TanOk&list=PL82C6-O4XrHfoN_Y4MwGvJz5BntiL0z0D)
+- [Getting started with C# (Microsoft Docs)](https://learn.microsoft.com/en-us/dotnet/csharp/)
+
+## Script file structure
+
+Every C# bot script follows a two-section layout:
+
+```csharp
+//MCCScript 1.0
+
+MCC.LoadBot(new YourBotClass());
+
+//MCCScript Extensions
+
+public class YourBotClass : ChatBot
+{
+    // Override lifecycle methods here
+}
+```
+
+| Section | Purpose |
+|---|---|
+| `//MCCScript 1.0` | Must be on the first line. Marks the start of the Script Metadata section. |
+| `MCC.LoadBot(...)` | Instantiates your bot class and registers it with MCC. |
+| `//MCCScript Extensions` | Marks the end of the Script Metadata section. Your class definition goes after this. |
+
+The Script Metadata section also supports additional namespace imports and DLL references:
+
+```csharp
+//MCCScript 1.0
+
+//using System.Collections.Immutable
+//dll MyDll.dll
+
+MCC.LoadBot(new YourBotClass());
+
+//MCCScript Extensions
+```
+
+<Note>
+  Avoid whitespace between `//` and keywords like `using` or `dll`. The following namespaces are loaded by default: `System`, `System.Collections.Generic`, `System.Text.RegularExpressions`, `System.Linq`, `System.Text`, `System.IO`, `System.Net`, `System.Threading`, `MinecraftClient`, `MinecraftClient.Mapping`, `MinecraftClient.Inventory`.
+</Note>
+
+## Lifecycle methods
+
+Your class extends `ChatBot` and can override any of these methods. None are required.
+
+| Method | When it is called |
+|---|---|
+| `Initialize()` | Once when the bot is first loaded. Use it to set up variables and state. |
+| `AfterGameJoined()` | After MCC successfully joins the server. Use this (not `Initialize`) to send chat or commands. |
+| `Update()` | Every game tick (20 times per second). Use for polling or timed logic. |
+| `GetText(string text)` | When any chat or system message is received from the server. |
+| `OnDisconnect(DisconnectReason reason, string message)` | When MCC disconnects from the server. Use to clean up resources. |
+
+<Note>
+  Always normalize inbound chat with `GetVerbatim(text)` before passing it to `IsChatMessage()` or `IsPrivateMessage()`. Do not send chat or commands from `Initialize()` — use `AfterGameJoined()` instead.
+</Note>
+
+## Example: a bot that logs chat messages
+
+This is the exact content of `sample-script-with-chatbot.cs` from the MCC repository:
+
+```csharp
+//MCCScript 1.0
+
+/* This is a sample script that will load a ChatBot into Minecraft Console Client
+ * Simply execute the script once with /script or the script scheduler to load the bot */
+
+MCC.LoadBot(new ExampleBot());
+
+//MCCScript Extensions
+
+/* The ChatBot class must be defined as an extension of the script in the Extensions section
+ * The class can override common methods from ChatBot.cs, take a look at MCC's source code */
+
+public class ExampleBot : ChatBot
+{
+    public override void Initialize()
+    {
+        LogToConsole("Sucessfully Initialized!");
+    }
+
+    public override void GetText(string text)
+    {
+        string message = "";
+        string username = "";
+        text = GetVerbatim(text);
+
+        if (IsChatMessage(text, ref message, ref username))
+        {
+            LogToConsole("Public message from " + username + ": " + message);
+        }
+        else if (IsPrivateMessage(text, ref message, ref username))
+        {
+            LogToConsole("Private message from " + username + ": " + message);
+        }
+    }
+}
+```
+
+## Example: a script without a bot class
+
+If you only need to run a quick sequence of API calls without setting up a full bot, you can write code directly in the Script Metadata section. This is the content of `sample-script.cs`:
+
+```csharp
+//MCCScript 1.0
+
+/* This is a sample script for Minecraft Console Client
+ * The code provided in this file will be compiled at runtime and executed
+ * Allowed instructions: Any C# code AND methods provided by the MCC API */
+
+for (int i = 0; i < 5; i++)
+{
+    int count = MCC.GetVarAsInt("test") + 1;
+    MCC.SetVar("test", count);
+    MCC.SendText("Hello World no. " + count);
+    MCC.LogToConsole("Sleeping for 5 seconds...");
+    Thread.Sleep(5000);
+}
+```
+
+## Key API methods
+
+These are commonly used methods available inside a `ChatBot` subclass. The full API is documented in [`ChatBot.cs`](https://github.com/MCCTeam/Minecraft-Console-Client/blob/master/MinecraftClient/Scripting/ChatBot.cs).
+
+| Method | Description |
+|---|---|
+| `SendText(string text)` | Send chat text or a slash command to the server |
+| `LogToConsole(string text)` | Print a message to the MCC console |
+| `GetVerbatim(string text)` | Strip color codes from a message before matching |
+| `IsChatMessage(string text, ref string msg, ref string user)` | Check if text is a public chat message and extract sender/content |
+| `IsPrivateMessage(string text, ref string msg, ref string user)` | Check if text is a private message and extract sender/content |
+| `GetUsername()` | Get the bot's own Minecraft username |
+| `MoveToLocation(Location loc)` | Pathfind to a world location |
+| `GetWorld()` | Get the current world object for block lookups |
+| `GetInventory(int inventoryId)` | Get an inventory container snapshot |
+| `GetEntities()` | Get all currently tracked entities |
+
+## How to create and run your first bot
+
+<Steps>
+  <Step title="Create the script file">
+    Create a new file called `ExampleChatBot.cs` in the same folder as your MCC executable.
+  </Step>
+  <Step title="Add the script structure">
+    Start with the `//MCCScript 1.0` header, register your bot, then define the class:
+
+    ```csharp
+    //MCCScript 1.0
+
+    MCC.LoadBot(new ExampleChatBot());
+
+    //MCCScript Extensions
+
+    class ExampleChatBot : ChatBot
+    {
+        public override void Initialize()
+        {
+            LogToConsole("An example Chat Bot has been initialized!");
+        }
+
+        public override void GetText(string text)
+        {
+            string message = "";
+            string username = "";
+            text = GetVerbatim(text);
+
+            if (IsPrivateMessage(text, ref message, ref username))
+            {
+                LogToConsole(username + " has sent you a private message: " + message);
+            }
+            else if (IsChatMessage(text, ref message, ref username))
+            {
+                LogToConsole(username + " has said: " + message);
+            }
+        }
+    }
+    ```
+  </Step>
+  <Step title="Connect MCC to a server">
+    Launch MCC and connect to your Minecraft server as normal.
+  </Step>
+  <Step title="Load the bot">
+    In the MCC console, run:
+
+    ```
+    /script ExampleChatBot.cs
+    ```
+
+    You should see `[Example Chat Bot] An example Chat Bot has been initialized!` in the console.
+  </Step>
+</Steps>
+
+<Tip>
+  More example scripts are available in the [`config/`](https://github.com/MCCTeam/Minecraft-Console-Client/tree/master/MinecraftClient/config) and [`ChatBots/`](https://github.com/MCCTeam/Minecraft-Console-Client/tree/master/MinecraftClient/ChatBots) folders in the MCC repository.
+</Tip>

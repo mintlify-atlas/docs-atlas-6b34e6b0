@@ -1,0 +1,502 @@
+---
+title: 'Inventory and Item Commands'
+description: 'Reference for MCC commands that manage inventories, dig blocks, use and place items, drop items, rename items, and enchant equipment.'
+---
+
+Inventory and item commands let you inspect and manipulate every inventory the server has sent to MCC, break blocks, use held items, interact with containers, drop and rename items, and enchant gear. Most commands here require [Inventory Handling](../../configuration/overview) to be enabled.
+
+<Warning>
+  Inventory Handling is not supported on Minecraft 1.4.6-1.9. Commands that depend on it will fail on those versions.
+</Warning>
+
+---
+
+## `inventory`
+
+View, click, drop, and manage any open inventory or container. MCC treats all containers (player inventory, chests, furnaces, hoppers, etc.) uniformly using numeric IDs. The player inventory is always ID `0`.
+
+**Syntax:**
+
+```
+inventory
+inventory <player|container|p|c|id>
+inventory <player|container|p|c|id> list
+inventory <player|container|p|c|id> open
+inventory <player|container|p|c|id> close
+inventory <player|container|p|c|id> click <slot> [left|right|middle|shift|shiftright]
+inventory <player|container|p|c|id> drop <slot> [all]
+inventory inventories
+inventory search <itemtype> [count]
+inventory creativegive <slot> <itemtype> <count>
+inventory creativedelete <slot>
+```
+
+<Note>
+  `player` can be shortened to `p`, and `container` to `c`. Use `container` to target the most recently opened non-player container.
+</Note>
+
+<Note>
+  To open a container (chest, furnace, etc.) and get its ID, use [`useblock`](#useblock) first. `inventory` itself does not physically open containers.
+</Note>
+
+<ParamField path="player | container | id" type="string | number">
+  Which inventory to target. `player` is the player inventory (ID 0). `container` targets the current open container. An integer ID targets that specific inventory window.
+</ParamField>
+
+<ParamField path="list" type="string">
+  Print all items in the inventory with slot IDs.
+</ParamField>
+
+<ParamField path="open" type="string">
+  Open the TUI inventory view for the specified inventory (TUI mode only).
+</ParamField>
+
+<ParamField path="close" type="string">
+  Close the inventory window.
+</ParamField>
+
+<ParamField path="click slot [action]" type="string">
+  Click a slot. Default action is left click. Other actions: `right`, `middle`, `shift`, `shiftright`.
+</ParamField>
+
+<ParamField path="drop slot [all]" type="string">
+  Drop one item from the slot. Add `all` to drop the entire stack.
+</ParamField>
+
+<ParamField path="inventories" type="string">
+  List all currently tracked inventory IDs and their titles.
+</ParamField>
+
+<ParamField path="search itemtype [count]" type="string">
+  Search all tracked inventories for items matching the given type. Optionally filter by exact count.
+</ParamField>
+
+<ParamField path="creativegive slot itemtype count" type="string">
+  Give an item directly to a slot using the creative menu. Requires creative mode.
+</ParamField>
+
+<ParamField path="creativedelete slot" type="string">
+  Delete the item in a slot using the creative menu. Requires creative mode.
+</ParamField>
+
+<Accordion title="Full inventory workflow example">
+
+```bash
+# Open a chest at coordinates 10 64 20
+/useblock 10 64 20
+
+# List items in the open container
+/inventory container list
+
+# Click slot 0 (pick up first item)
+/inventory container click 0
+
+# Put it in player slot 36
+/inventory player click 36
+
+# Close the chest
+/inventory container close
+```
+
+</Accordion>
+
+<CodeGroup>
+
+```bash Show player inventory
+/inventory player
+```
+
+```bash List items in container inventory
+/inventory container list
+```
+
+```bash Left-click slot 36 in player inventory
+/inventory player click 36
+```
+
+```bash Right-click slot 4 in inventory 2
+/inventory 2 click 4 right
+```
+
+```bash Drop all items from player slot 37
+/inventory player drop 37 all
+```
+
+```bash Search for diamonds across all inventories
+/inventory search Diamond
+```
+
+```bash List all open inventories
+/inventory inventories
+```
+
+```bash Give 64 diamond blocks in creative (slot 36)
+/inventory creativegive 36 DiamondBlock 64
+```
+
+</CodeGroup>
+
+---
+
+## `dig`
+
+Break a block at the specified coordinates, or the block you are currently looking at if no coordinates are given. Requires Terrain and Movements to be enabled.
+
+**Syntax:** `dig [x y z] [duration]`
+
+<ParamField path="x y z" type="number">
+  Block coordinates. Supports relative coordinates with `~`. When omitted, breaks the block in your crosshair (within 4.5 blocks).
+</ParamField>
+
+<ParamField path="duration" type="number">
+  Optional dig duration in seconds. Useful for timing break animations on harder blocks.
+</ParamField>
+
+<Note>
+  The target block must be within 5 blocks of the player. Air blocks cannot be dug.
+</Note>
+
+<CodeGroup>
+
+```bash Dig the block you are looking at
+/dig
+```
+
+```bash Dig at exact coordinates
+/dig 127 63 12
+```
+
+```bash Dig the block below
+/dig ~ ~-1 ~
+```
+
+```bash Dig with a duration hint
+/dig 127 63 12 2.5
+```
+
+</CodeGroup>
+
+---
+
+## `useitem`
+
+Use the item currently held in the main hand. When Terrain and Movements is enabled, MCC ray-casts at the block in your crosshair and performs a use-on-block action. Without terrain, it sends a generic use-item packet.
+
+**Syntax:** `useitem [x y z]`
+
+<ParamField path="x y z" type="number">
+  Use the held item on the block at these coordinates instead of the crosshair target. Requires Terrain and Movements.
+</ParamField>
+
+<Warning>
+  Inventory Handling is not supported on Minecraft 1.4.6-1.9.
+</Warning>
+
+<CodeGroup>
+
+```bash Use held item on crosshair target
+/useitem
+```
+
+```bash Use held item on a specific block
+/useitem 43 72 7
+```
+
+</CodeGroup>
+
+---
+
+## `useblock`
+
+Interact with the block at the given coordinates - open containers, activate buttons, place a block from your hand, and more. Use this to open chests, crafting tables, furnaces, and enchanting tables before running `inventory` or `enchant`.
+
+**Syntax:** `useblock <x> <y> <z> [mainhand|offhand]`
+
+<ParamField path="x y z" type="number" required>
+  Coordinates of the block to interact with. Supports relative coordinates with `~`.
+</ParamField>
+
+<ParamField path="mainhand | offhand" type="string">
+  Which hand to use for the interaction. Defaults to `mainhand`.
+</ParamField>
+
+<Note>
+  Both Inventory Handling and Terrain and Movements must be enabled. Not all inventories have an ASCII art representation.
+</Note>
+
+<Warning>
+  Inventory Handling is not supported on Minecraft 1.4.6-1.9.
+</Warning>
+
+<CodeGroup>
+
+```bash Open a container at coordinates
+/useblock 43 72 7
+```
+
+```bash Interact with offhand
+/useblock 10 64 20 offhand
+```
+
+```bash Open a chest at relative position
+/useblock ~1 ~ ~
+```
+
+</CodeGroup>
+
+---
+
+## `dropitem`
+
+Drop all items of a specific type from the player's inventory (or the current open container if one is active).
+
+**Syntax:** `dropitem <itemtype>`
+
+<ParamField path="itemtype" type="string" required>
+  Item type name (for example `Diamond`, `OakLog`). A full list of item types is available at [mccteam.github.io/r/item](https://mccteam.github.io/r/item/#L12).
+</ParamField>
+
+<Note>
+  Inventory Handling must be enabled.
+</Note>
+
+```bash
+/dropitem Diamond
+```
+
+---
+
+## `changeslot`
+
+Change the active hotbar slot. Slots are numbered 1 through 9.
+
+**Syntax:** `changeslot <1-9>`
+
+<ParamField path="slot" type="number" required>
+  Hotbar slot number from 1 (leftmost) to 9 (rightmost).
+</ParamField>
+
+<Note>
+  Inventory Handling must be enabled.
+</Note>
+
+<CodeGroup>
+
+```bash Select hotbar slot 1
+/changeslot 1
+```
+
+```bash Select the last hotbar slot
+/changeslot 9
+```
+
+</CodeGroup>
+
+---
+
+## `nameitem`
+
+Rename the item in slot 0 of a currently open anvil inventory. After running this command, click slot 2 (the output slot) to retrieve the renamed item.
+
+**Syntax:** `nameitem <name>`
+
+<ParamField path="name" type="string" required>
+  The new name for the item. Spaces are allowed.
+</ParamField>
+
+<Note>
+  An Anvil inventory must be open and slot 0 must contain an item. Use `useblock` to open the anvil first.
+</Note>
+
+<Accordion title="Full anvil rename workflow">
+
+```bash
+# Open the anvil
+/useblock 12 74 321
+
+# Move an item from player slot 12 to anvil slot 0
+/inventory player click 12
+/inventory container click 0
+
+# Set the new name
+/nameitem My Fancy Axe
+
+# Take the output from slot 2
+/inventory container click 2
+
+# Put it back in player slot 12
+/inventory player click 12
+
+# Close the anvil
+/inventory container close
+```
+
+</Accordion>
+
+```bash
+/nameitem My super duper sword 2000
+```
+
+---
+
+## `enchant`
+
+Click one of the three enchantment options in an open enchanting table. You must first open the table with `useblock`, then place an item in slot 0 and at least 3 lapis lazuli in slot 1.
+
+**Syntax:** `enchant <top|middle|bottom>`
+
+<ParamField path="top | middle | bottom" type="string" required>
+  Which enchantment slot to select. `top` is the cheapest option, `bottom` is the most expensive.
+</ParamField>
+
+<Note>
+  Inventory Handling must be enabled. You need sufficient experience levels for the chosen slot.
+</Note>
+
+<Accordion title="Full enchanting workflow">
+
+```bash
+# Open the enchanting table
+/useblock 5 64 10
+
+# Place the item to enchant in slot 0 and lapis in slot 1
+/inventory player click 12
+/inventory container click 0
+/inventory player click 20
+/inventory container click 1
+
+# Select the bottom (highest-level) enchantment
+/enchant bottom
+```
+
+</Accordion>
+
+```bash
+/enchant top
+```
+
+---
+
+## `recipebook`
+
+List unlocked recipe book entries or ask the server to place a recipe into the active crafting grid. Requires Inventory Handling and Minecraft 1.13 or later.
+
+**Syntax:**
+
+```
+recipebook list
+recipebook craft <recipe id>
+recipebook craftall <recipe id>
+```
+
+<ParamField path="list" type="string">
+  Show all recipe book entries MCC is currently tracking.
+</ParamField>
+
+<ParamField path="craft recipe-id" type="string">
+  Request one placement of the recipe into the crafting grid.
+</ParamField>
+
+<ParamField path="craftall recipe-id" type="string">
+  Request the maximum number of placements for the recipe.
+</ParamField>
+
+<Warning>
+  Recipe book crafting requires Minecraft 1.13 or later.
+</Warning>
+
+<Note>
+  On newer versions, `list` may show numeric IDs such as `838: Oak Planks`. Use the numeric ID with `craft` or `craftall`.
+</Note>
+
+<CodeGroup>
+
+```bash List known recipes
+/recipebook list
+```
+
+```bash Craft by name
+/recipebook craft minecraft:oak_planks
+```
+
+```bash Craft by numeric ID
+/recipebook craftall 838
+```
+
+</CodeGroup>
+
+---
+
+## `animation`
+
+Swing the main or off hand, sending the animation packet to the server.
+
+**Syntax:** `animation <mainhand|offhand>`
+
+<ParamField path="mainhand | offhand" type="string" required>
+  Which hand to animate.
+</ParamField>
+
+<CodeGroup>
+
+```bash Swing main hand
+/animation mainhand
+```
+
+```bash Swing off hand
+/animation offhand
+```
+
+</CodeGroup>
+
+---
+
+## `achievement`
+
+Show achievements or advancements MCC has received from the server.
+
+**Syntax:** `achievement [list|locked|unlocked]`
+
+<ParamField path="list" type="string">
+  Show all known entries (default when no argument is given).
+</ParamField>
+
+<ParamField path="locked" type="string">
+  Show only incomplete entries.
+</ParamField>
+
+<ParamField path="unlocked" type="string">
+  Show only completed entries.
+</ParamField>
+
+<Note>
+  On Minecraft 1.8-1.11.2, legacy achievement IDs are shown (e.g. `achievement.openInventory`). On 1.12+, advancement keys are shown (e.g. `minecraft:story/root`).
+</Note>
+
+<CodeGroup>
+
+```bash List all known entries
+/achievement
+```
+
+```bash Show incomplete entries
+/achievement locked
+```
+
+```bash Show completed entries
+/achievement unlocked
+```
+
+</CodeGroup>
+
+---
+
+## `effects`
+
+List all status effects currently active on the player.
+
+**Syntax:** `effects`
+
+```bash
+/effects
+```

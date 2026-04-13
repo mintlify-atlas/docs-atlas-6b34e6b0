@@ -1,0 +1,249 @@
+---
+title: 'Proxy, Logging, and Advanced Settings'
+description: 'Route MCC traffic through HTTP or SOCKS proxies, filter and persist log output, and tune console, chat format, and connection behavior.'
+---
+
+MCC provides granular control over how it routes network traffic, what it prints to the console, and how it interprets chat messages from servers with non-standard formats. Proxy settings sit in the `[Proxy]` section, logging and filter settings in the `[Logging]` section, and chat format overrides in `[ChatFormat]`.
+
+## Proxy settings
+
+Use the `[Proxy]` section to route MCC's connections through an HTTP or SOCKS proxy. You can enable the proxy independently for authentication, update checks, and in-game traffic.
+
+```toml
+[Proxy]
+Enabled_Login = false
+Enabled_Update = false
+Enabled_Ingame = false
+Proxy_Type = "HTTP"
+Server = { Host = "0.0.0.0", Port = 8080 }
+Username = ""
+Password = ""
+```
+
+<ParamField path="Enabled_Login" type="boolean" default="false">
+  Route Microsoft or Mojang authentication traffic through the proxy. Enable this if your network blocks Mojang's login servers or if your IP is rate-limited by Microsoft.
+</ParamField>
+
+<ParamField path="Enabled_Update" type="boolean" default="false">
+  Use the proxy when MCC checks for newer versions of itself.
+</ParamField>
+
+<ParamField path="Enabled_Ingame" type="boolean" default="false">
+  Connect to the game server through the proxy. Enable this if port 25565 is blocked on your network.
+
+  <Warning>
+    Check your server's rules before enabling this. Using a proxy or VPN may violate the server's terms of service.
+  </Warning>
+</ParamField>
+
+<ParamField path="Proxy_Type" type="string" default="HTTP">
+  The proxy protocol. Accepted values are `HTTP`, `SOCKS4`, `SOCKS4a`, and `SOCKS5`.
+
+  The proxy server must allow HTTPS connections for login traffic and non-443 ports for game traffic.
+</ParamField>
+
+<ParamField path="Server" type="inline table" default='{ Host = "0.0.0.0", Port = 8080 }'>
+  The proxy server's address and port.
+
+  ```toml
+  Server = { Host = "proxy.example.com", Port = 1080 }
+  ```
+</ParamField>
+
+<ParamField path="Username" type="string">
+  Username for password-protected proxies. Leave blank for unauthenticated proxies.
+</ParamField>
+
+<ParamField path="Password" type="string">
+  Password for password-protected proxies. Leave blank for unauthenticated proxies.
+</ParamField>
+
+## Logging settings
+
+The logging settings live in the `[Logging]` section of `MinecraftClient.ini`. They control which message categories appear in the console and whether messages are written to a log file.
+
+```toml
+[Logging]
+DebugMessages = false
+ChatMessages = true
+InfoMessages = true
+WarningMessages = true
+ErrorMessages = true
+FilterMode = "disable"
+ChatFilterRegex = ".*"
+DebugFilterRegex = ".*"
+LogToFile = false
+LogFile = "console-log.txt"
+PrependTimestamp = false
+SaveColorCodes = false
+```
+
+<ParamField path="DebugMessages" type="boolean" default="false">
+  Show low-level debug output. Useful when reporting bugs or developing scripts.
+</ParamField>
+
+<ParamField path="ChatMessages" type="boolean" default="true">
+  Show chat messages received from the server.
+</ParamField>
+
+<ParamField path="InfoMessages" type="boolean" default="true">
+  Show informational messages from MCC itself. Most status output falls into this category.
+</ParamField>
+
+<ParamField path="WarningMessages" type="boolean" default="true">
+  Show warning messages.
+</ParamField>
+
+<ParamField path="ErrorMessages" type="boolean" default="true">
+  Show error messages.
+</ParamField>
+
+<ParamField path="FilterMode" type="string" default="disable">
+  Controls chat and debug message filtering. Accepted values:
+  - `disable` - No filtering applied.
+  - `blacklist` - Messages matching the regex are hidden.
+  - `whitelist` - Only messages matching the regex are shown.
+</ParamField>
+
+<ParamField path="ChatFilterRegex" type="string" default=".*">
+  A .NET regular expression applied to incoming chat messages when `FilterMode` is `blacklist` or `whitelist`. The default `.*` matches everything (no filtering).
+
+  ```toml
+  # Show only messages that mention "steve"
+  FilterMode = "whitelist"
+  ChatFilterRegex = "(?i)steve"
+  ```
+</ParamField>
+
+<ParamField path="DebugFilterRegex" type="string" default=".*">
+  A .NET regular expression applied to debug messages when `FilterMode` is active. Defaults to `.*` (no filtering).
+</ParamField>
+
+### Logging to a file
+
+<ParamField path="LogToFile" type="boolean" default="false">
+  Write all console output to a file.
+</ParamField>
+
+<ParamField path="LogFile" type="string" default="console-log.txt">
+  Path to the log file. You can embed `%username%` and `%serverip%` to make the filename dynamic:
+
+  ```toml
+  LogFile = "console-log-%username%-%serverip%.txt"
+  ```
+</ParamField>
+
+<ParamField path="PrependTimestamp" type="boolean" default="false">
+  Prepend a timestamp to each line written to the log file.
+</ParamField>
+
+<ParamField path="SaveColorCodes" type="boolean" default="false">
+  Preserve Minecraft color codes (e.g. `§b`) in logged messages. Useful if you want to post-process the log while retaining formatting information.
+</ParamField>
+
+## Chat format settings
+
+MCC automatically detects most server chat formats, but servers with heavily customized chat may require manual configuration. The `[ChatFormat]` section uses .NET regular expressions to match message patterns.
+
+```toml
+[ChatFormat]
+Builtins = true
+UserDefined = false
+Public = "^<([a-zA-Z0-9_]+)> (.+)$"
+Private = "^([a-zA-Z0-9_]+) whispers to you: (.+)$"
+TeleportRequest = "^([a-zA-Z0-9_]+) has requested (?:to|that you) teleport to (?:you|them)\\.$"
+```
+
+<ParamField path="Builtins" type="boolean" default="true">
+  Use the built-in chat format patterns that cover standard vanilla and popular server formats. Set to `false` to avoid conflicts when using fully custom formats.
+</ParamField>
+
+<ParamField path="UserDefined" type="boolean" default="false">
+  Enable custom chat format patterns defined in `Public`, `Private`, and `TeleportRequest`. Set to `true` to activate your custom regexes.
+</ParamField>
+
+<ParamField path="Public" type="string" default='"^<([a-zA-Z0-9_]+)> (.+)$"'>
+  Regex pattern for public chat messages. The first capture group is the sender's username; the second is the message body. Only active when `Builtins` is `false`.
+</ParamField>
+
+<ParamField path="Private" type="string" default='"^([a-zA-Z0-9_]+) whispers to you: (.+)$"'>
+  Regex pattern for private (whisper) messages. Only active when `Builtins` is `false`.
+</ParamField>
+
+<ParamField path="TeleportRequest" type="string">
+  Regex pattern for teleport request messages. Only active when `Builtins` is `false`.
+</ParamField>
+
+For Regex help and testing, see the [Microsoft .NET Regex reference](https://docs.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-language-quick-reference) and the online tester at [regex101.com](https://regex101.com/).
+
+## Console settings
+
+The `[Console.General]` section controls how MCC renders its interactive console.
+
+```toml
+[Console.General]
+ConsoleColorMode = "vt100_24bit"
+Display_Input = true
+History_Input_Records = 32
+```
+
+<ParamField path="ConsoleColorMode" type="string" default="vt100_24bit">
+  Color rendering mode. Options are `disable`, `legacy_4bit`, `vt100_4bit`, `vt100_8bit`, and `vt100_24bit`. If your terminal displays garbled escape sequences such as `←[0m`, switch to `legacy_4bit` or `disable`.
+</ParamField>
+
+<ParamField path="Display_Input" type="boolean" default="true">
+  Echo the current input line while typing. Set to `false` to suppress it, for example when piping output to another program.
+</ParamField>
+
+<ParamField path="History_Input_Records" type="integer" default="32">
+  Maximum number of console input lines to remember for up-arrow history recall.
+</ParamField>
+
+### Command suggestions
+
+```toml
+[Console.CommandSuggestion]
+Enable = true
+Enable_Color = true
+Use_Basic_Arrow = false
+Max_Suggestion_Width = 30
+Max_Displayed_Suggestions = 6
+```
+
+<ParamField path="Enable" type="boolean" default="true">
+  Show tab-completion suggestions as you type commands in the console. Set to `false` to disable the suggestion popup entirely.
+</ParamField>
+
+<ParamField path="Use_Basic_Arrow" type="boolean" default="false">
+  Use simple ASCII arrows instead of Unicode arrows in the suggestion popup. Enable this if the default arrows are not displayed correctly in your terminal.
+</ParamField>
+
+<ParamField path="Max_Suggestion_Width" type="integer" default="30">
+  Maximum character width of the suggestion popup.
+</ParamField>
+
+<ParamField path="Max_Displayed_Suggestions" type="integer" default="6">
+  Maximum number of suggestions shown at once.
+</ParamField>
+
+## Connection settings
+
+<ParamField path="AutoRespawn" type="boolean" default="false">
+  Automatically respawn when your character dies. Located in `[Main.Advanced]`.
+
+  <Note>
+    Verify that the spawn point is safe before enabling this setting.
+  </Note>
+</ParamField>
+
+<ParamField path="TcpTimeout" type="integer" default="30">
+  TCP connection timeout in seconds. Located in `[Main.Advanced]`. Only change this if you are connecting to a slow or geographically distant server.
+</ParamField>
+
+<ParamField path="ExitOnFailure" type="boolean" default="false">
+  Disable the "press any key to exit" pause when MCC encounters an error. Enable this when running MCC from non-interactive scripts or automation pipelines.
+</ParamField>
+
+<ParamField path="MessageCooldown" type="float" default="1.0">
+  Minimum delay in seconds between outgoing chat messages. Increase this if the server kicks you for sending messages too quickly.
+</ParamField>

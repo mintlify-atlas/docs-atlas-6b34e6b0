@@ -1,0 +1,260 @@
+---
+title: "Remote Control MCC via WebSocket"
+description: "The WebSocket bot runs a local JSON-over-WebSocket server inside MCC, letting any external client send commands and receive game events in real time."
+---
+
+The WebSocket Bot is an external C# script that turns MCC into a JSON-over-WebSocket server. Once loaded, it accepts commands from any WebSocket client on your network, executes them against the live MCC session, and pushes game events back in real time. This makes it straightforward to drive MCC from JavaScript, Python, or any other language that has a WebSocket library.
+
+<Note>
+  This bot is **not** built into MCC. It ships as a standalone script in the repository at `config/ChatBots/WebSocketBot.cs` and must be loaded explicitly with `/script`.
+</Note>
+
+## Loading the bot
+
+<Steps>
+  <Step title="Copy the script">
+    Copy `config/ChatBots/WebSocketBot.cs` into your MCC `config/ChatBots/` folder. The file ships in the repository under that path.
+  </Step>
+  <Step title="Configure IP, port, and password">
+    Open the file and find the line near the top that reads:
+
+    ```csharp
+    MCC.LoadBot(new WebSocketBot("127.0.0.1", 8043, "CHANGE_THIS_PASSWORD"));
+    ```
+
+    - Replace `127.0.0.1` with the IP to bind. Use `+` or `*` to listen on all interfaces.
+    - Replace `8043` with your preferred port.
+    - Replace `CHANGE_THIS_PASSWORD` with a strong, unique password.
+
+    To enable debug logging, add `debugMode: true`:
+
+    ```csharp
+    MCC.LoadBot(new WebSocketBot("127.0.0.1", 8043, "mypassword", debugMode: true));
+    ```
+  </Step>
+  <Step title="Load the script in MCC">
+    Start MCC, connect to a server, then run:
+
+    ```
+    /script ChatBots/WebSocketBot.cs
+    ```
+
+    The bot starts a WebSocket server. Connect to `ws://127.0.0.1:8043/` with any WebSocket client.
+  </Step>
+</Steps>
+
+## Authentication flow
+
+After connecting, you must authenticate before sending any other commands. Optionally set a friendly session name first.
+
+```
+Connect via WebSocket
+        |
+        v
+(Optional) Send "ChangeSessionId" to set a friendly session name
+        |
+        v
+Send "Authenticate" with the configured password
+        |
+        v
+Send commands and receive events
+```
+
+**Authentication example:**
+
+```json
+{
+  "command": "Authenticate",
+  "requestId": "auth-001",
+  "parameters": ["your-password-here"]
+}
+```
+
+Every command produces an `OnWsCommandResponse` event with a `success` flag, the original `requestId`, and an optional `message`.
+
+## Command format
+
+All commands are JSON objects sent as WebSocket text frames:
+
+```json
+{
+  "command": "CommandName",
+  "requestId": "any-unique-string",
+  "parameters": [1, "text", true]
+}
+```
+
+| Field | Description |
+|---|---|
+| `command` | The procedure name (case-sensitive) |
+| `requestId` | A client-generated ID for matching responses to requests |
+| `parameters` | An ordered array of arguments; types depend on the command |
+
+You can also send plain text directly over the socket. Text starting with `/` is forwarded to MCC as an internal command. Other text is sent as chat.
+
+## Event format
+
+Events are pushed to all authenticated clients as JSON:
+
+```json
+{
+  "event": "EventName",
+  "data": "{ ... serialized payload ... }"
+}
+```
+
+The `data` field is a JSON string; parse it separately to access the event payload. All enum values (item types, entity types, directions, etc.) are serialized as string names rather than numeric IDs.
+
+## Key commands
+
+### Protocol
+
+| Command | Parameters | Description |
+|---|---|---|
+| `Authenticate` | `[password]` | Authenticate with the configured password |
+| `ChangeSessionId` | `[newId]` | Set a friendly session name (1-32 chars) |
+| `ReconnectToTheServer` | `[attempts, delaySecs]` | Reconnect to the Minecraft server |
+| `DisconnectAndExit` | none | Disconnect and shut down MCC |
+
+### Chat
+
+| Command | Parameters | Description |
+|---|---|---|
+| `SendPrivateMessage` | `[playerName, message]` | Send a private message |
+| `LogToConsole` | `[message]` | Print a message to the MCC console |
+| `RunScript` | `[fileName]` | Run an MCC script file |
+
+### World and movement
+
+| Command | Parameters | Description |
+|---|---|---|
+| `GetCurrentLocation` | none | Get the player's `{ x, y, z }` location |
+| `MoveToLocation` | `[x, y, z, allowUnsafe?, allowTeleport?, maxOffset?, minOffset?]` | Pathfind to a coordinate |
+| `LookAtLocation` | `[x, y, z]` | Rotate the player's view toward a coordinate |
+| `DigBlock` | `[x, y, z, direction?]` | Break a block at the given coordinates |
+| `GetWorld` | none | Check if world data is available |
+| `GetTerrainEnabled` | none | Check if terrain handling is enabled |
+
+### Entities
+
+| Command | Parameters | Description |
+|---|---|---|
+| `GetEntities` | none | Get all tracked entities as a dictionary of ID to entity object |
+| `InteractEntity` | `[entityId, interactionType, hand?]` | Interact with an entity (`Interact`, `Attack`, `InteractAt`) |
+| `Sneak` | `[true/false]` | Toggle sneaking |
+
+### Inventory
+
+| Command | Parameters | Description |
+|---|---|---|
+| `GetPlayerInventory` | none | Get the full player inventory |
+| `GetInventories` | none | Get all open inventories |
+| `WindowAction` | `[inventoryId, slotId, actionType]` | Perform an inventory action (`LeftClick`, `RightClick`, etc.) |
+| `ChangeSlot` | `[slotNumber]` | Change the active hotbar slot (0-8) |
+
+### Player info
+
+| Command | Parameters | Description |
+|---|---|---|
+| `GetUsername` | none | Get the player's username |
+| `GetGamemode` | none | Get the current gamemode |
+| `GetOnlinePlayers` | none | Get a list of online player names |
+| `GetServerTPS` | none | Get the server TPS |
+
+### Enum mappings
+
+| Command | Description |
+|---|---|
+| `GetItemTypeMappings` | Returns a dictionary of all item type names to numeric IDs |
+| `GetEntityTypeMappings` | Returns a dictionary of all entity type names to numeric IDs |
+
+## Key events
+
+| Event | Payload summary |
+|---|---|
+| `OnWsCommandResponse` | `{ success, requestId, message }` — response to every command |
+| `OnGameJoined` | Sent when MCC joins the server |
+| `OnChatPublic` | `{ sender, message, rawText }` — public chat message received |
+| `OnChatPrivate` | `{ sender, message, rawText }` — private message received |
+| `OnChatRaw` | `{ text, json }` — every raw chat message including server JSON |
+| `OnPlayerJoin` | `{ uuid, name }` — a player joined the server |
+| `OnPlayerLeave` | `{ uuid, name }` — a player left the server |
+| `OnHealthUpdate` | `{ health, food }` — player health or food changed |
+| `OnDisconnect` | `{ reason, message }` — MCC disconnected; reason values: `ConnectionLost`, `UserLogout`, `InGameKick`, `LoginRejected` |
+| `OnEntitySpawn` | Full entity object when an entity appears |
+| `OnEntityDespawn` | Full entity object when an entity disappears |
+| `OnInventoryUpdate` | `{ inventoryId }` — inventory contents changed |
+| `OnDeath` | Player died |
+| `OnRespawn` | Player respawned |
+| `OnServerTpsUpdate` | `{ tps }` — server TPS changed |
+
+## Example: connect and send a chat message
+
+The following JSON sequence shows the full flow from connection to sending a message.
+
+**Step 1 — Authenticate:**
+
+```json
+{
+  "command": "Authenticate",
+  "requestId": "auth-001",
+  "parameters": ["mypassword"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "event": "OnWsCommandResponse",
+  "data": "{\"success\":true,\"requestId\":\"auth-001\",\"message\":\"Authenticated\"}"
+}
+```
+
+**Step 2 — Check your username:**
+
+```json
+{
+  "command": "GetUsername",
+  "requestId": "info-001",
+  "parameters": []
+}
+```
+
+**Response:**
+
+```json
+{
+  "event": "OnWsCommandResponse",
+  "data": "{\"success\":true,\"requestId\":\"info-001\",\"message\":\"{\\\"username\\\":\\\"MyBot\\\"}\"}"
+}
+```
+
+**Step 3 — Send a chat message via plain text:**
+
+```
+Hello from my WebSocket client!
+```
+
+MCC will forward this as chat to the Minecraft server.
+
+**Step 4 — Listen for events:**
+
+When another player sends a public message, you receive:
+
+```json
+{
+  "event": "OnChatPublic",
+  "data": "{\"sender\":\"Steve\",\"message\":\"Hello!\",\"rawText\":\"<Steve> Hello!\"}"
+}
+```
+
+<Tip>
+  If you are building a JavaScript or TypeScript client, check out [MCC.js](https://github.com/milutinke/MCC.js), a Node.js library that handles authentication, JSON serialization, event subscriptions, and typed command wrappers out of the box.
+</Tip>
+
+## Compatibility
+
+- Requires any MCC version that supports `/script` (MCCScript 1.0 bots).
+- Uses only `System.Text.Json`, which is built into .NET — no extra DLLs are needed.
+- Compatible with [MCC.js](https://github.com/milutinke/MCC.js) and any WebSocket client library.

@@ -1,0 +1,428 @@
+---
+title: "Entity Tracking and Movement API"
+description: "Reference for MCC's Entity and Movement APIs: querying entities, A* pathfinding, direct movement, look direction, interaction, and block manipulation."
+---
+
+MCC can track entities near the player and navigate the world using an A\* pathfinder backed by a vanilla-accurate physics engine. Both subsystems are opt-in and must be enabled in your MCC configuration file before bots can use them. The entity tracking system requires Minecraft 1.8 or newer; pathfinding requires terrain handling to be active.
+
+<Note>
+Entity handling **cannot** be enabled at runtime after joining a server. It must be set in the config file before launching MCC. Terrain and movement can be toggled at runtime, but enabling terrain only takes effect after the next relog, respawn, or world change.
+</Note>
+
+---
+
+## Feature guards
+
+Always check subsystem availability before calling entity or movement APIs.
+
+### GetEntityHandlingEnabled
+
+```csharp
+public bool GetEntityHandlingEnabled()
+```
+
+Returns `true` if entity tracking is active. Entity tracking cannot be enabled after joining a server.
+
+---
+
+### GetTerrainEnabled / SetTerrainEnabled
+
+```csharp
+public bool GetTerrainEnabled()
+public bool SetTerrainEnabled(bool enabled)
+```
+
+`GetTerrainEnabled` returns whether terrain and movement is currently active. `SetTerrainEnabled` schedules a change; returns `true` if applied immediately, `false` if deferred to the next world load.
+
+---
+
+## Entity API
+
+### GetEntities
+
+```csharp
+protected Dictionary<int, Entity> GetEntities()
+```
+
+Returns a snapshot of all currently tracked entities, keyed by their server-assigned entity ID. Requires entity handling to be enabled.
+
+```csharp
+Dictionary<int, Entity> entities = GetEntities();
+foreach (var (id, entity) in entities)
+    LogToConsole($"Entity {id}: {entity.Type} at {entity.Location}");
+```
+
+---
+
+### GetPlayersLatency
+
+```csharp
+protected Dictionary<string, int> GetPlayersLatency()
+```
+
+Returns a dictionary mapping player username to latency in milliseconds.
+
+---
+
+## Entity class
+
+Each entity tracked by MCC is represented by an `Entity` instance with the following fields:
+
+```csharp
+public class Entity
+{
+    public int ID;                               // Server entity ID
+    public Guid UUID;                            // UUID (players only)
+    public string? Name;                         // Player username (players only)
+    public string? CustomName;                   // Custom name tag, if set
+    public bool IsCustomNameVisible;
+    public EntityType Type;                      // Entity type enum
+    public Location Location;                    // Current position
+    public float Yaw;                            // Head yaw (degrees)
+    public float Pitch;                          // Head pitch (degrees)
+    public float Health;                         // Current health
+    public int Latency;                          // Latency (players only)
+    public Dictionary<int, Item> Equipment;      // Equipment slots
+    public Dictionary<Effects, EffectData> ActiveEffects; // Active status effects
+    public Item Item;                            // Item entity payload (ItemFrame, Item)
+    public EntityPose Pose;                      // Current pose
+    public Dictionary<int, object?>? Metadata;  // Raw entity metadata
+}
+```
+
+**Equipment slots:** `0` = main hand, `1` = off hand, `2` = boots, `3` = leggings, `4` = chestplate, `5` = helmet.
+
+---
+
+## EntityType enum
+
+`EntityType` covers every entity type in the game. A representative selection:
+
+| Value | Description |
+|---|---|
+| `EntityType.Player` | Another player |
+| `EntityType.Item` | Dropped item |
+| `EntityType.Arrow` | Shot arrow |
+| `EntityType.Creeper` | Creeper mob |
+| `EntityType.Zombie` | Zombie mob |
+| `EntityType.Skeleton` | Skeleton mob |
+| `EntityType.Spider` | Spider mob |
+| `EntityType.Enderman` | Enderman |
+| `EntityType.IronGolem` | Iron golem |
+| `EntityType.Villager` | Villager |
+| `EntityType.Boat` | Boat |
+| `EntityType.Minecart` | Minecart |
+| `EntityType.FallingBlock` | Falling block |
+| `EntityType.Fireball` | Ghast fireball |
+| `EntityType.Tnt` | Primed TNT |
+| `EntityType.ExperienceOrb` | XP orb |
+| `EntityType.FishingBobber` | Fishing bobber |
+
+The full enum is defined in `MinecraftClient/Mapping/EntityType.cs`.
+
+---
+
+## Movement and pathfinding API
+
+<Warning>
+Pathfinding capabilities: A\* over walkable terrain, jumping, sprinting, sneaking, and climbing ladders. Limitations: no full swimming pathfinding, no knockback simulation. The pathfinder will time out and return `false` if no path exists within the configured timeout.
+</Warning>
+
+### MoveToLocation
+
+```csharp
+protected bool MoveToLocation(
+    Location location,
+    bool allowUnsafe = false,
+    bool allowDirectTeleport = false,
+    int maxOffset = 0,
+    int minOffset = 0,
+    TimeSpan? timeout = null)
+```
+
+Compute an A\* path to `location` and begin executing it. Returns `true` if a path was found and movement started; `false` if no path could be computed within the timeout.
+
+<ParamField path="location" type="Location" required>
+  Target destination in world coordinates.
+</ParamField>
+<ParamField path="allowUnsafe" type="bool">
+  Allow paths through hazardous blocks such as lava or cactus. Default `false`.
+</ParamField>
+<ParamField path="allowDirectTeleport" type="bool">
+  Skip pathfinding and teleport directly. May trigger anti-cheat. Default `false`.
+</ParamField>
+<ParamField path="maxOffset" type="int">
+  If no exact path exists, accept a landing point within this many blocks of the target. Default `0`.
+</ParamField>
+<ParamField path="minOffset" type="int">
+  Do not approach closer than this many blocks to the target. Default `0`.
+</ParamField>
+<ParamField path="timeout" type="TimeSpan?">
+  Maximum pathfinding computation time. Default is 5 seconds when `null`.
+</ParamField>
+
+---
+
+### ClientIsMoving
+
+```csharp
+protected bool ClientIsMoving()
+```
+
+Returns `true` if MCC is currently executing a movement path. Poll this from `Update()` to wait for movement to complete.
+
+---
+
+### LookAtLocation
+
+```csharp
+protected void LookAtLocation(Location location)
+protected void LookAtLocation(float yaw, float pitch)
+```
+
+Update the player's look direction to face a world location or a specific yaw/pitch pair. Sends a location update packet immediately.
+
+---
+
+### GetYaw / GetPitch
+
+```csharp
+protected float GetYaw()
+protected float GetPitch()
+```
+
+Return the current head yaw and pitch of the client player.
+
+---
+
+### GetHorizontalFacing
+
+```csharp
+protected Direction GetHorizontalFacing()
+```
+
+Returns the cardinal `Direction` the player is currently facing.
+
+---
+
+### Sneak
+
+```csharp
+protected bool Sneak(bool on)
+```
+
+Start or stop sneaking. Sends the appropriate entity action packet to the server.
+
+---
+
+### GetPlayerEntityID
+
+```csharp
+protected int GetPlayerEntityID()
+```
+
+Returns the server-assigned entity ID for the local player. Useful when filtering entity events.
+
+---
+
+## Interaction API
+
+### InteractEntity
+
+```csharp
+protected bool InteractEntity(int EntityID, InteractType type,
+    Hand hand = Hand.MainHand)
+```
+
+Send an interact packet for the entity with the given ID.
+
+<ParamField path="EntityID" type="int" required>Server entity ID to interact with.</ParamField>
+<ParamField path="type" type="InteractType" required>
+  `InteractType.Interact` (right-click), `InteractType.Attack` (left-click), or `InteractType.InteractAt` (right-click with position).
+</ParamField>
+<ParamField path="hand" type="Hand">
+  `Hand.MainHand` (default) or `Hand.OffHand`.
+</ParamField>
+
+---
+
+### DigBlock
+
+```csharp
+protected bool DigBlock(Location location, Direction direction,
+    bool swingArms = true, bool lookAtBlock = true, double duration = 0)
+```
+
+Attempt to dig the block at the given location.
+
+<ParamField path="location" type="Location" required>Location of the block to dig.</ParamField>
+<ParamField path="direction" type="Direction" required>
+  Face direction relative to the player. For example, use `Direction.Down` when the player is below the block being broken.
+</ParamField>
+<ParamField path="swingArms" type="bool">Also play the arm-swing animation. Default `true`.</ParamField>
+<ParamField path="lookAtBlock" type="bool">Look at the block before digging. Default `true`.</ParamField>
+<ParamField path="duration" type="double">
+  Dig duration in seconds. `0` = auto-compute for survival mode, or instant for creative.
+</ParamField>
+
+---
+
+### SendPlaceBlock
+
+```csharp
+public bool SendPlaceBlock(Location location, Direction blockFace,
+    Hand hand = Hand.MainHand)
+```
+
+Place the block currently held in the active inventory slot against the specified face.
+
+<ParamField path="location" type="Location" required>Location of the block being clicked (the support block, not the placement target).</ParamField>
+<ParamField path="blockFace" type="Direction" required>The face of `location` that the new block will be placed against.</ParamField>
+<ParamField path="hand" type="Hand">Hand to use. Default `Hand.MainHand`.</ParamField>
+
+---
+
+### UseItemInHand / UseItemInLeftHand
+
+```csharp
+protected bool UseItemInHand()
+protected bool UseItemInLeftHand()
+```
+
+Send a use-item packet for the main hand or off-hand slot respectively.
+
+---
+
+### SendAnimation
+
+```csharp
+public bool SendAnimation(Hand hand = Hand.MainHand)
+```
+
+Plays the arm-swing animation.
+
+---
+
+### ChangeSlot / GetCurrentSlot
+
+```csharp
+protected bool ChangeSlot(short slot)
+protected byte GetCurrentSlot()
+```
+
+Switch the active hotbar slot (0-8) or read the currently active slot.
+
+---
+
+### SpectatorTeleport
+
+```csharp
+protected bool SpectatorTeleport(Entity entity)
+protected bool SpectatorTeleport(Guid UUID)
+```
+
+Teleport to another player or entity while in spectator mode.
+
+---
+
+## Usage examples
+
+### Find nearest player and move toward them
+
+```csharp
+//MCCScript 1.0
+
+MCC.LoadBot(new FollowNearest());
+
+//MCCScript Extensions
+
+public class FollowNearest : ChatBot
+{
+    public override void AfterGameJoined()
+    {
+        if (!GetEntityHandlingEnabled())
+        {
+            LogToConsole("Entity handling is disabled.");
+            UnloadBot();
+        }
+        if (!GetTerrainEnabled())
+        {
+            LogToConsole("Terrain is disabled.");
+            UnloadBot();
+        }
+    }
+
+    public override void Update()
+    {
+        if (ClientIsMoving()) return;
+
+        Location myLoc = GetCurrentLocation();
+        Entity? nearest = null;
+        double nearestDist = double.MaxValue;
+
+        foreach (var (_, entity) in GetEntities())
+        {
+            if (entity.Type != EntityType.Player) continue;
+            double d = myLoc.DistanceSquared(entity.Location);
+            if (d < nearestDist)
+            {
+                nearestDist = d;
+                nearest = entity;
+            }
+        }
+
+        if (nearest != null && nearestDist > 4)
+        {
+            bool found = MoveToLocation(nearest.Location, allowUnsafe: false, maxOffset: 2);
+            if (!found)
+                LogToConsole("No path to " + nearest.Name);
+        }
+    }
+}
+```
+
+---
+
+### React to entity spawn events
+
+```csharp
+public override void OnEntitySpawn(Entity entity)
+{
+    if (entity.Type == EntityType.Creeper)
+    {
+        LogToConsole($"Creeper spawned at {entity.Location}!");
+        Location safe = GetCurrentLocation();
+        // Move away by offsetting spawn location
+        MoveToLocation(safe, allowUnsafe: false, minOffset: 8);
+    }
+}
+```
+
+---
+
+### Dig a block in front of the player
+
+```csharp
+public override void GetText(string text)
+{
+    text = GetVerbatim(text);
+    string msg = "", sender = "";
+    if (IsChatMessage(text, ref msg, ref sender) && msg == "dig")
+    {
+        var (hit, blockLoc, block) = GetLookingBlock();
+        if (hit && block.Type != Material.Air)
+            DigBlock(blockLoc, Direction.South);
+    }
+}
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="ChatBot Lifecycle" href="/reference/api/chatbot-lifecycle">
+    Initialize, Update, event hooks, and utility methods
+  </Card>
+  <Card title="World and Inventory" href="/reference/api/world-and-inventory">
+    Block queries, Location struct, containers, and items
+  </Card>
+</CardGroup>

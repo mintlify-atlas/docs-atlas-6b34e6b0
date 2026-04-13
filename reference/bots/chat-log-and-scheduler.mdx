@@ -1,0 +1,283 @@
+---
+title: 'Chat Log, Mailer, and Script Scheduler Reference'
+description: 'Configuration reference for ChatLog, ScriptScheduler, PlayerListLogger, Mailer, and HangmanGame bots: filters, task triggers, intervals, and mail storage.'
+---
+
+These bots handle message logging, player tracking, offline mail delivery, scheduled task execution, and a classic Hangman game. None of them require terrain or inventory access — they work on all supported Minecraft versions.
+
+---
+
+## ChatLog
+
+Write incoming chat messages to a text file with optional timestamps and message-type filtering.
+
+**Config section:** `[ChatBot.ChatLog]`
+
+```toml
+[ChatBot.ChatLog]
+Enabled = false
+Add_DateTime = true
+Log_File = "chatlog-%username%-%serverip%.txt"
+Filter = "messages"
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the ChatLog bot.
+</ParamField>
+
+<ParamField path="Add_DateTime" type="boolean" default="true">
+  Prepend a timestamp to each logged line.
+</ParamField>
+
+<ParamField path="Log_File" type="string" default="chatlog-%username%-%serverip%.txt">
+  Path and filename of the log file. The placeholders `%username%` and `%serverip%` are replaced at runtime with the current account username and server address, allowing per-account or per-server log files. Relative paths are resolved from the MCC working directory.
+</ParamField>
+
+<ParamField path="Filter" type="string" default="messages">
+  Which message types to write to the log file.
+
+  | Value      | Description                                                         |
+  | ---------- | ------------------------------------------------------------------- |
+  | `all`      | All output from the MCC console.                                    |
+  | `messages` | All chat messages: public, private, system, and plugin channel.     |
+  | `chat`     | Public chat messages only.                                          |
+  | `private`  | Private messages only.                                              |
+  | `internal` | MCC internal messages and command output only.                      |
+</ParamField>
+
+---
+
+## ScriptScheduler
+
+Run any MCC internal command automatically on login, at specific times of day, or on a repeating interval.
+
+**Config section:** `[ChatBot.ScriptScheduler]`
+
+```toml
+[ChatBot.ScriptScheduler]
+Enabled = false
+
+    [[ChatBot.ScriptScheduler.TaskList]]
+    Task_Name = "Send greeting on login"
+    Trigger_On_First_Login = false
+    Trigger_On_Login = true
+    Trigger_On_Times = { Enable = false, Times = [] }
+    Trigger_On_Interval = { Enable = false, MinTime = 1.0, MaxTime = 10.0 }
+    Action = "send /hello"
+
+    [[ChatBot.ScriptScheduler.TaskList]]
+    Task_Name = "Authenticate every login"
+    Trigger_On_First_Login = false
+    Trigger_On_Login = true
+    Trigger_On_Times = { Enable = false, Times = [] }
+    Trigger_On_Interval = { Enable = false, MinTime = 1.0, MaxTime = 10.0 }
+    Action = "send /login yourpassword"
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the ScriptScheduler bot.
+</ParamField>
+
+### TaskList entries
+
+Each task is defined as a `[[ChatBot.ScriptScheduler.TaskList]]` subsection. You can add as many entries as needed.
+
+<Tip>
+  Indent `[[ChatBot.ScriptScheduler.TaskList]]` subsections by one tab or four spaces relative to the parent section for readability.
+</Tip>
+
+<ParamField path="Task_Name" type="string" default="Task Name (Can be empty)">
+  A human-readable label for the task. Used in debug log output. Can be left empty.
+</ParamField>
+
+<ParamField path="Trigger_On_First_Login" type="boolean" default="false">
+  Run this task once on the very first login during the current MCC session. Does not re-fire on subsequent reconnects within the same session.
+</ParamField>
+
+<ParamField path="Trigger_On_Login" type="boolean" default="false">
+  Run this task on every login, including reconnects triggered by AutoRelog.
+</ParamField>
+
+<ParamField path="Trigger_On_Times" type="inline table" default="{ Enable = false, Times = [] }">
+  Run this task at specific times of day (wall-clock time on the machine running MCC).
+
+  - `Enable` — set to `true` to activate time-based triggering.
+  - `Times` — array of [TOML local times](https://toml.io/en/v1.0.0#local-time) in `HH:MM:SS` format.
+
+  ```toml
+  Trigger_On_Times = { Enable = true, Times = [ 14:00:00, 22:30:00 ] }
+  ```
+
+  The task fires once per minute-window match and will not fire again during the same minute.
+</ParamField>
+
+<ParamField path="Trigger_On_Interval" type="inline table" default="{ Enable = false, MinTime = 1.0, MaxTime = 10.0 }">
+  Run this task on a repeating interval.
+
+  - `Enable` — set to `true` to activate interval-based triggering.
+  - `MinTime` — minimum interval in seconds (double). Minimum allowed value is `0.1`.
+  - `MaxTime` — maximum interval in seconds (double).
+
+  When `MinTime` equals `MaxTime`, the interval is fixed. When they differ, a random interval is chosen between the two values on each trigger.
+
+  ```toml
+  Trigger_On_Interval = { Enable = true, MinTime = 30.0, MaxTime = 160.0 }
+  ```
+</ParamField>
+
+<ParamField path="Action" type="string">
+  The MCC internal command to execute when the task triggers. Use the same syntax as the MCC command prompt. Examples: `send /ping`, `script myscript.cs`, `move 145 64 832`.
+</ParamField>
+
+### Full example
+
+```toml
+[ChatBot.ScriptScheduler]
+Enabled = true
+
+    [[ChatBot.ScriptScheduler.TaskList]]
+    Task_Name = "Hourly ping"
+    Trigger_On_First_Login = false
+    Trigger_On_Login = false
+    Trigger_On_Times = { Enable = true, Times = [ 00:00:00, 01:00:00, 02:00:00 ] }
+    Trigger_On_Interval = { Enable = false, MinTime = 1.0, MaxTime = 10.0 }
+    Action = "send /ping"
+
+    [[ChatBot.ScriptScheduler.TaskList]]
+    Task_Name = "Random anti-AFK script"
+    Trigger_On_First_Login = false
+    Trigger_On_Login = false
+    Trigger_On_Times = { Enable = false, Times = [] }
+    Trigger_On_Interval = { Enable = true, MinTime = 45.0, MaxTime = 90.0 }
+    Action = "send /ping"
+```
+
+---
+
+## PlayerListLogger
+
+Periodically save the list of online players to a text file.
+
+**Config section:** `[ChatBot.PlayerListLogger]`
+
+```toml
+[ChatBot.PlayerListLogger]
+Enabled = false
+File = "playerlog.txt"
+Delay = 60.0
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the PlayerListLogger bot.
+</ParamField>
+
+<ParamField path="File" type="string" default="playerlog.txt">
+  Path to the file where the player list is written. The file is overwritten on each log cycle.
+</ParamField>
+
+<ParamField path="Delay" type="float" default="60.0">
+  How often to write the player list, in seconds.
+</ParamField>
+
+---
+
+## Mailer
+
+Store and deliver private messages between players. Works like an `/mail` plugin: messages sent to the bot are held and delivered when the recipient next joins.
+
+**Config section:** `[ChatBot.Mailer]`
+
+<Warning>
+  The bot identifies players by username, not by UUID. A nickname plugin or a Minecraft name change may deliver mail to the wrong player. Do not use this bot to relay sensitive information.
+</Warning>
+
+<Warning>
+  Server admins can spoof private messages via `/tellraw` or `/nick`. Only enable this bot on servers whose administrators you trust.
+</Warning>
+
+**In-game usage:**
+- `/tell <BotName> mail <recipient> <message>` — store a mail for future delivery.
+- `/tell <BotName> tellonym <recipient> <message>` — store an anonymous mail.
+
+**MCC console commands:**
+- `/mailer getmails` — list all stored mails.
+- `/mailer addignored <name>` — prevent a player from sending mail.
+- `/mailer removeignored <name>` — lift the restriction.
+- `/mailer getignored` — list ignored players.
+
+```toml
+[ChatBot.Mailer]
+Enabled = false
+DatabaseFile = "MailerDatabase.ini"
+IgnoreListFile = "MailerIgnoreList.ini"
+PublicInteractions = false
+MaxMailsPerPlayer = 10
+MaxDatabaseSize = 10000
+MailRetentionDays = 30
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the Mailer bot.
+</ParamField>
+
+<ParamField path="DatabaseFile" type="string" default="MailerDatabase.ini">
+  Path to the file where queued mails are stored. Created automatically on first use. Multiple MCC instances sharing the same file will synchronise their mail queues.
+</ParamField>
+
+<ParamField path="IgnoreListFile" type="string" default="MailerIgnoreList.ini">
+  Path to the file that lists ignored players (one username per line). Created automatically. Players in this list cannot send mail through the bot.
+</ParamField>
+
+<ParamField path="PublicInteractions" type="boolean" default="false">
+  When `true`, the bot also responds to mail commands sent in public chat. When `false`, it only responds to private messages.
+</ParamField>
+
+<ParamField path="MaxMailsPerPlayer" type="integer" default="10">
+  Maximum number of pending mails stored per recipient.
+</ParamField>
+
+<ParamField path="MaxDatabaseSize" type="integer" default="10000">
+  Maximum size of the mail database file in kilobytes (default is 10 MB). New mails are rejected when the limit is reached.
+</ParamField>
+
+<ParamField path="MailRetentionDays" type="integer" default="30">
+  Number of days to keep undelivered mails before they are discarded.
+</ParamField>
+
+---
+
+## HangmanGame
+
+A classic word-guessing game that the bot hosts in Minecraft chat. One of the original MCC bot demos.
+
+**Config section:** `[ChatBot.HangmanGame]`
+
+<Note>
+  Add yourself to the `botowners` list in the main configuration. The bot only responds to messages from bot owners.
+</Note>
+
+**Usage:** Send `/tell <BotName> start` to start a game.
+
+```toml
+[ChatBot.HangmanGame]
+Enabled = false
+English = true
+FileWords_EN = "hangman-en.txt"
+FileWords_FR = "hangman-fr.txt"
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the HangmanGame bot.
+</ParamField>
+
+<ParamField path="English" type="boolean" default="true">
+  When `true`, use the English word list from `FileWords_EN`. When `false`, use the French word list from `FileWords_FR`.
+</ParamField>
+
+<ParamField path="FileWords_EN" type="string" default="hangman-en.txt">
+  Path to the English word list file. One word per line. Not created automatically — copy [hangman-en.txt](https://github.com/MCCTeam/Minecraft-Console-Client/blob/master/MinecraftClient/config/hangman-en.txt) from the repository.
+</ParamField>
+
+<ParamField path="FileWords_FR" type="string" default="hangman-fr.txt">
+  Path to the French word list file. One word per line. Not created automatically — copy [hangman-fr.txt](https://github.com/MCCTeam/Minecraft-Console-Client/blob/master/MinecraftClient/config/hangman-fr.txt) from the repository.
+</ParamField>

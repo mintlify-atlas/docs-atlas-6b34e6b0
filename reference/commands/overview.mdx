@@ -1,0 +1,93 @@
+---
+title: 'MCC Internal Commands Reference'
+description: 'Complete reference for all MCC internal commands grouped by category, with syntax, flags, and usage notes for interactive console and script use.'
+---
+
+MCC's internal command system is built on [Brigadier.NET](https://github.com/MCCTeam/Brigadier.NET), the same command framework Minecraft itself uses. Commands are fully typed, support tab completion, and work in the interactive console, in `.txt` and `.cs` scripts, and through Remote Control.
+
+## How to run commands
+
+In the **interactive console**, type a command directly with a leading slash:
+
+```bash
+/send Hello world
+/move 128 64 -32
+/bots list
+```
+
+In **scripts and Remote Control**, omit the slash:
+
+```bash
+send Hello world
+move 128 64 -32
+bots list
+```
+
+<Note>
+  To send a Minecraft server command (such as `/tp` or `/gamemode`) from within a script, use `send`:
+  `send /tp Steve 0 64 0`
+</Note>
+
+Use `/help` in the console to list every registered command. Use `/help <command>` for usage details about a specific command.
+
+## All commands by category
+
+| Command | Category | Description |
+|---------|----------|-------------|
+| `send` | Chat & Connection | Send a chat message or server command |
+| `connect` | Chat & Connection | Connect to a server (IP or alias) |
+| `disconnect` | Chat & Connection | Disconnect from the current server |
+| `reco` | Chat & Connection | Reconnect to the current server |
+| `exit` / `quit` | Chat & Connection | Disconnect and close MCC |
+| `reload` | Chat & Connection | Reload config file and chat bots |
+| `list` | Chat & Connection | List players visible in the tab list |
+| `tab` | Chat & Connection | Show detailed player tab list |
+| `tps` | Chat & Connection | Show server TPS (ticks per second) |
+| `move` | Movement & World | Move to a direction, coordinates, or toggle terrain |
+| `look` | Movement & World | Change the look direction |
+| `sneak` | Movement & World | Toggle sneaking |
+| `minimap` | Movement & World | Control the TUI minimap overlay |
+| `chunk` | Movement & World | Show chunk loading status map |
+| `blockinfo` | Movement & World | Report block type at a coordinate |
+| `entity` | Movement & World | List or interact with nearby entities |
+| `bed` | Movement & World | Sleep in or leave a bed |
+| `respawn` | Movement & World | Respawn after death |
+| `health` | Movement & World | Show current health and food level |
+| `inventory` | Inventory & Items | View and manipulate any inventory or container |
+| `dig` | Inventory & Items | Dig a block at a coordinate |
+| `useitem` | Inventory & Items | Use the held item |
+| `useblock` | Inventory & Items | Interact with a block (open chest, place block) |
+| `dropitem` | Inventory & Items | Drop all items of a given type |
+| `changeslot` | Inventory & Items | Change the active hotbar slot |
+| `nameitem` | Inventory & Items | Rename an item in an open anvil |
+| `enchant` | Inventory & Items | Select an enchanting table slot |
+| `recipebook` | Inventory & Items | List and request recipe book entries |
+| `animation` | Inventory & Items | Swing main or off hand |
+| `achievement` | Inventory & Items | Show known achievements or advancements |
+| `effects` | Inventory & Items | List active status effects |
+| `script` | Scripting & Bots | Run a `.txt` or `.cs` script file |
+| `bots` | Scripting & Bots | List or unload loaded bots |
+| `set` | Scripting & Bots | Set an AppVars variable |
+| `setrnd` | Scripting & Bots | Set a variable to a random value |
+| `execif` | Scripting & Bots | Execute a command when a condition is true |
+| `execmulti` | Scripting & Bots | Run multiple commands in one line |
+| `log` | Scripting & Bots | Print text to the console |
+| `debug` | Scripting & Bots | Toggle or inspect debug mode |
+| `wait` | Scripting & Bots | Pause script execution for a number of ticks |
+
+## Command categories
+
+<CardGroup cols={2}>
+  <Card title="Chat and connection" icon="message" href="/reference/commands/chat-and-connection">
+    Send messages, connect to servers, reconnect, disconnect, and query server status.
+  </Card>
+  <Card title="Movement and world" icon="map" href="/reference/commands/movement-and-world">
+    Move, look, query blocks, inspect chunks, and interact with the game world.
+  </Card>
+  <Card title="Inventory and items" icon="backpack" href="/reference/commands/inventory-and-items">
+    Manage inventories, dig blocks, use items, drop and rename items, and enchant.
+  </Card>
+  <Card title="Scripting and bots" icon="code" href="/reference/commands/scripting-and-bots">
+    Run scripts, manage loaded bots, set variables, and chain commands conditionally.
+  </Card>
+</CardGroup>

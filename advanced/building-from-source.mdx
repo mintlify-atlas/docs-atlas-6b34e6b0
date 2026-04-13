@@ -1,0 +1,257 @@
+---
+title: "Build Minecraft Console Client from Source"
+description: "Compile MCC from the GitHub repo to run bleeding-edge code, apply local patches, or produce self-contained binaries for Windows, Linux, and macOS."
+---
+
+Building from source gives you access to the very latest code before a release is published, lets you apply local patches, and is the right starting point if you want to contribute to MCC. You will need the .NET 10 SDK and Git; no other runtime dependencies are required.
+
+<Info>
+  If you just want to run MCC, the pre-built binaries or the one-liner installer are the fastest path. See [Installation](/installation) for those options.
+</Info>
+
+## Prerequisites
+
+- **Git** — [git-scm.com](https://git-scm.com/)
+- **.NET 10 SDK** — [dotnet.microsoft.com](https://dotnet.microsoft.com/en-us/download)
+
+<Tabs>
+  <Tab title="Windows">
+    Install Git from [git-scm.com](https://www.git-scm.com/). Then install the .NET 10 SDK with winget:
+
+    ```powershell
+    winget install Microsoft.DotNet.SDK.10
+    ```
+
+    Alternatively, download the installer from the [.NET download page](https://dotnet.microsoft.com/en-us/download).
+  </Tab>
+  <Tab title="Linux">
+    Install Git through your distribution's package manager. For example, on Debian-based systems:
+
+    ```bash
+    apt install git
+    ```
+
+    On Ubuntu 24.04 LTS, install the .NET 10 SDK from the Ubuntu package feeds:
+
+    ```bash
+    sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0
+    ```
+
+    For other distributions, see [Install .NET on Linux](https://learn.microsoft.com/en-us/dotnet/core/install/linux).
+  </Tab>
+  <Tab title="macOS">
+    Install Git from [git-scm.com/download/mac](https://git-scm.com/download/mac). Then install the .NET 10 SDK using the official installer from the [.NET download page](https://dotnet.microsoft.com/en-us/download). Choose **Arm64** for Apple Silicon and **x64** for Intel Macs.
+  </Tab>
+</Tabs>
+
+Verify the SDK is available before proceeding:
+
+```bash
+dotnet --info
+```
+
+## Clone the repository
+
+<Steps>
+  <Step title="Clone with submodules">
+    MCC depends on the `ConsoleInteractive` submodule. Clone recursively to initialize it in one step:
+
+    ```bash
+    git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+    ```
+
+    If you already cloned without `--recursive`, initialize the submodule manually:
+
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+    <Warning>
+      The build will fail if the `ConsoleInteractive` submodule is not initialized. Always run `git submodule update --init --recursive` if you see missing file errors during build.
+    </Warning>
+  </Step>
+
+  <Step title="Enter the repository directory">
+    ```bash
+    cd Minecraft-Console-Client
+    ```
+  </Step>
+</Steps>
+
+## Build for local development
+
+The repository ships helper scripts in `tools/` that wrap the `dotnet` CLI and keep build routing consistent with the CI pipeline. Source the environment file first:
+
+```bash
+source tools/mcc-env.sh
+```
+
+Then run the build:
+
+```bash
+mcc-build
+```
+
+This is equivalent to running `dotnet build MinecraftClient.sln -c Release` but also activates worktree-local temp build helpers used by the dev loop.
+
+### Build without the helper scripts
+
+If you prefer the raw `dotnet` command:
+
+```bash
+dotnet build MinecraftClient.sln -c Release
+```
+
+<Note>
+  The build emits several analyzer warnings and NuGet vulnerability notices. These are known and tracked by the team. The build still succeeds and produces a working binary.
+</Note>
+
+## Build using Visual Studio (Windows only)
+
+<Steps>
+  <Step title="Open the solution">
+    Open `MinecraftClient.sln` in Visual Studio.
+  </Step>
+  <Step title="Set the build configuration">
+    In the **Solution Explorer**, right-click the `MinecraftClient` solution and select **Properties**. Open the **Build** tab and set the configuration to **Release**. Press `CTRL+S` to save.
+  </Step>
+  <Step title="Build the solution">
+    Right-click the `MinecraftClient` solution in **Solution Explorer** and click **Build**.
+  </Step>
+</Steps>
+
+The compiled binary is written to `MinecraftClient/bin/Release/net10.0/win-x64/publish/`.
+
+## Publish a self-contained binary
+
+The `mcc-publish` helper produces a self-contained, single-file binary that does not require .NET to be installed on the target machine — this matches the shape of the official releases.
+
+<Tabs>
+  <Tab title="Windows">
+    ```powershell
+    source tools/mcc-env.sh
+    mcc-publish --rid win-x64
+    ```
+
+    Output: `MinecraftClient/bin/Release/net10.0/win-x64/publish/MinecraftClient.exe`
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    source tools/mcc-env.sh
+    mcc-publish --rid linux-x64
+    ```
+
+    Output: `MinecraftClient/bin/Release/net10.0/linux-x64/publish/MinecraftClient`
+
+    <Note>
+      For ARM or other architectures, replace `linux-x64` with the appropriate [Runtime Identifier (RID)](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#linux-rids), for example `linux-arm64`.
+    </Note>
+  </Tab>
+  <Tab title="macOS">
+    ```bash
+    source tools/mcc-env.sh
+    mcc-publish --rid osx-x64
+    ```
+
+    Output: `MinecraftClient/bin/Release/net10.0/osx-x64/publish/MinecraftClient`
+
+    <Note>
+      For Apple Silicon, replace `osx-x64` with `osx-arm64`. See the full [macOS RID list](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#macos-rids).
+    </Note>
+  </Tab>
+</Tabs>
+
+### Publish without the helper scripts
+
+You can also call `dotnet publish` directly:
+
+<CodeGroup>
+
+```bash Linux (x64)
+dotnet publish MinecraftClient/MinecraftClient.csproj \
+  -c Release \
+  -r linux-x64 \
+  --self-contained true
+```
+
+```powershell Windows (x64)
+dotnet publish MinecraftClient/MinecraftClient.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true
+```
+
+```bash macOS (x64)
+dotnet publish MinecraftClient/MinecraftClient.csproj \
+  -c Release \
+  -r osx-x64 \
+  --self-contained true
+```
+
+</CodeGroup>
+
+## Run directly from source
+
+During development you can run MCC without publishing a binary first. The helper script sets up session and input handling:
+
+```bash
+source tools/mcc-env.sh
+mcc-debug -v 1.21.11 --file-input
+```
+
+Or using the raw dotnet CLI:
+
+```bash
+dotnet run --project MinecraftClient/MinecraftClient.csproj -c Release
+```
+
+## Build output locations
+
+| Platform | Output path |
+|---|---|
+| Windows x64 | `MinecraftClient/bin/Release/net10.0/win-x64/publish/MinecraftClient.exe` |
+| Linux x64 | `MinecraftClient/bin/Release/net10.0/linux-x64/publish/MinecraftClient` |
+| macOS x64 | `MinecraftClient/bin/Release/net10.0/osx-x64/publish/MinecraftClient` |
+| macOS ARM64 | `MinecraftClient/bin/Release/net10.0/osx-arm64/publish/MinecraftClient` |
+
+## Common issues
+
+<AccordionGroup>
+  <Accordion title="Build fails with missing files or type errors in ConsoleInteractive">
+    The `ConsoleInteractive` submodule was not initialized. Run:
+
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+    Then build again.
+  </Accordion>
+
+  <Accordion title="Analyzer warnings and NuGet vulnerability warnings">
+    The build produces several analyzer diagnostics and NuGet vulnerability warnings. These are known issues tracked by the MCC team. The binary produced is still functional. Treat the warnings as real (do not suppress them) and avoid introducing new ones when contributing code.
+  </Accordion>
+
+  <Accordion title="dotnet command not found after installing the SDK">
+    Ensure the SDK is on your `PATH`. After installation, open a new terminal. Verify with:
+
+    ```bash
+    dotnet --version
+    ```
+
+    If it still is not found on Linux, check [Install .NET on Linux](https://learn.microsoft.com/en-us/dotnet/core/install/linux) for distribution-specific PATH setup steps.
+  </Accordion>
+
+  <Accordion title="Wrong architecture binary produced">
+    The `--rid` flag controls the target platform. Run `dotnet --info` to see your current RID, or consult the [.NET RID catalog](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog) to find the correct identifier for your target.
+  </Accordion>
+</AccordionGroup>
+
+## Optional: download translation resources
+
+If you want to build with non-English UI strings, download translation files from [Crowdin](https://crowdin.com/project/minecraft-console-client) and place them in the following directories before building:
+
+- `MinecraftClient/Resources/Translations/` — in-app text (`MCC in-app text`)
+- `MinecraftClient/Resources/ConfigComments/` — config file comments
+- `MinecraftClient/Resources/AsciiArt/` — ASCII art assets
+
+Translation contributions are managed through Crowdin. See [Contributing](/advanced/contributing) for details.

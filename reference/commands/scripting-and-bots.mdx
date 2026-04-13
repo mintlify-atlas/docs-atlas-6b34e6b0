@@ -1,0 +1,320 @@
+---
+title: 'Scripting and Bot Management Commands'
+description: 'Reference for MCC commands that run scripts, manage loaded bots, set variables, chain commands, and control debug and logging behavior.'
+---
+
+Scripting and bot management commands give you control over MCC's automation layer. You can run `.txt` text scripts or compiled `.cs` C# bots, inspect and unload loaded bots, set and read AppVars variables, execute commands conditionally, and chain multiple commands into a single line. These commands are especially useful inside scripts and with the Remote Control bot.
+
+---
+
+## `script`
+
+Load and run a script file. Text scripts (`.txt`) execute a list of MCC internal commands line by line. C# scripts (`//MCCScript` header, `.cs` extension) are compiled by Roslyn at runtime and have full access to the bot API.
+
+**Syntax:** `script <scriptname>`
+
+<ParamField path="scriptname" type="string" required>
+  File name of the script to run. MCC searches for the file relative to its working directory. Omit the extension or include it.
+</ParamField>
+
+<Note>
+  In a text script, commands do not need a leading slash. In the interactive console they do: `/script myscript.txt`.
+</Note>
+
+<CodeGroup>
+
+```bash Run a text script
+/script myscript.txt
+```
+
+```bash Run a C# bot script
+/script mybot.cs
+```
+
+```bash In a script (no leading slash)
+script myscript.txt
+```
+
+</CodeGroup>
+
+---
+
+## `bots`
+
+List all currently loaded chat bots, or unload a specific bot or all bots by name. Useful when debugging scripts or reloading bot behavior without disconnecting.
+
+**Syntax:** `bots [list|unload <botname|all>]`
+
+<ParamField path="list" type="string">
+  Print the names of all loaded bots. This is the default when called with no arguments.
+</ParamField>
+
+<ParamField path="unload botname" type="string">
+  Unload the bot with the given class name. The name is case-insensitive.
+</ParamField>
+
+<ParamField path="unload all" type="string">
+  Unload every currently loaded bot.
+</ParamField>
+
+<CodeGroup>
+
+```bash List all loaded bots
+/bots list
+```
+
+```bash Unload a specific bot
+/bots unload CustomScript
+```
+
+```bash Unload all bots
+/bots unload all
+```
+
+</CodeGroup>
+
+---
+
+## `set`
+
+Set an AppVars variable to a value. Variables are referenced as `%varname%` in subsequent commands and scripts. Setting a variable to an empty string clears it.
+
+**Syntax:** `set varname=value`
+
+<ParamField path="varname" type="string" required>
+  Variable name. Must not contain `=`.
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Value to assign. Everything after the first `=` is the value, so values may contain `=` characters.
+</ParamField>
+
+<CodeGroup>
+
+```bash Set a simple variable
+/set abc=123
+```
+
+```bash Use the variable in a later command
+/send My variable is %abc%
+```
+
+```bash In a script
+set greeting=Hello
+send %greeting% world
+```
+
+</CodeGroup>
+
+---
+
+## `setrnd`
+
+Set an AppVars variable to a randomly chosen value from a list, or to a random integer within a numeric range.
+
+**Syntax:**
+
+```
+setrnd <varname> <value1> [value2 ...]
+setrnd <varname> <min> to <max>
+```
+
+<ParamField path="varname" type="string" required>
+  Variable name to assign the random value to.
+</ParamField>
+
+<ParamField path="value1 [value2 ...]" type="string">
+  One or more values to pick from at random. Wrap values containing spaces in double quotes.
+</ParamField>
+
+<ParamField path="min to max" type="number">
+  Randomly pick an integer in the range `min` to `max` (inclusive of min, exclusive of max).
+</ParamField>
+
+<CodeGroup>
+
+```bash Pick a random greeting
+/setrnd greeting Hello Hi Hey "Good day"
+```
+
+```bash Pick a random number from -7 to 9
+/setrnd roll -7 to 10
+```
+
+```bash Use the result
+/send Rolled: %roll%
+```
+
+</CodeGroup>
+
+---
+
+## `execif`
+
+Execute a command only when a C# expression evaluates to `true`. AppVars variables (set with `set` or `setrnd`) are available by name in the expression. The MCC client instance is available as `MCC`.
+
+**Syntax:** `execif "<condition>" "<command>"`
+
+<ParamField path="condition" type="string" required>
+  A C# boolean expression. Wrap with single quotes if the expression contains double quotes.
+</ParamField>
+
+<ParamField path="command" type="string" required>
+  The MCC internal command to run when the condition is true (without a leading slash).
+</ParamField>
+
+<Note>
+  All AppVars variables are stored as strings. Compare with `==` or use `.Equals()`. Cast to the appropriate type for numeric comparisons.
+</Note>
+
+<Tip>
+  Use single quotes (`'`) to wrap the condition when it contains double quotes. Alternatively, escape double quotes with a backslash inside a double-quoted string.
+</Tip>
+
+<CodeGroup>
+
+```bash Execute when a variable equals a value
+/set test=Something
+/execif 'test == "Something"' "send Condition met!"
+```
+
+```bash Numeric expression
+/execif "1 + 2 + 3 == 6" "send Math works!"
+```
+
+```bash Using the MCC client API
+/execif "MCC.GetHealth() == 20.0" "send Full health!"
+```
+
+```bash Combined with execmulti
+/execif "1 == 1" "execmulti send one -> send two -> send three"
+```
+
+</CodeGroup>
+
+---
+
+## `execmulti`
+
+Execute multiple MCC internal commands in sequence on a single line. Commands are separated by `->`. Useful for inline automation and when combined with `execif`.
+
+**Syntax:** `execmulti <command1> -> <command2> -> ...`
+
+<ParamField path="command1 -> command2 -> ..." type="string" required>
+  One or more commands separated by `->`. Do not include leading slashes.
+</ParamField>
+
+<Warning>
+  `execmulti` cannot be nested inside another `execmulti` or `execif`, and those commands cannot appear in the command list.
+</Warning>
+
+<CodeGroup>
+
+```bash Send three messages in sequence
+/execmulti send one -> send two -> send three
+```
+
+```bash Mix commands
+/execmulti sneak -> wait 20 -> sneak
+```
+
+</CodeGroup>
+
+---
+
+## `log`
+
+Print a message to the MCC console output. Useful for debugging scripts and marking progress.
+
+**Syntax:** `log <text>`
+
+<ParamField path="text" type="string" required>
+  The text to display in the console. AppVars variables using `%varname%` syntax are expanded.
+</ParamField>
+
+<CodeGroup>
+
+```bash Log a message
+/log Reached waypoint 3
+```
+
+```bash Log a variable value
+/set step=5
+/log Current step is %step%
+```
+
+```bash In a script
+log Starting loop
+```
+
+</CodeGroup>
+
+---
+
+## `debug`
+
+Toggle debug logging on or off, or report the current state. When enabled, MCC prints detailed packet and protocol information. Useful for developing bots and diagnosing connection issues.
+
+**Syntax:** `debug [on|off|state]`
+
+<ParamField path="on | off" type="string">
+  Explicitly enable or disable debug logging.
+</ParamField>
+
+<ParamField path="state" type="string">
+  Print a full debug state summary including server address, protocol version, game mode, health, location, TPS, active features, and loaded bots.
+</ParamField>
+
+When called with no arguments, `/debug` toggles the current state.
+
+<CodeGroup>
+
+```bash Toggle debug mode
+/debug
+```
+
+```bash Enable debug logging
+/debug on
+```
+
+```bash Disable debug logging
+/debug off
+```
+
+```bash Print full state summary
+/debug state
+```
+
+</CodeGroup>
+
+---
+
+## `wait`
+
+Pause script execution for a fixed or random number of ticks. Only meaningful inside scripts; in the interactive console it blocks input until the wait ends.
+
+**Syntax:** `wait <ticks> | wait <min> to <max>`
+
+<ParamField path="ticks" type="number" required>
+  Number of ticks to wait. 20 ticks equals approximately one second.
+</ParamField>
+
+<ParamField path="min to max" type="number">
+  Wait for a random number of ticks between `min` and `max`. You can use `-` instead of `to`.
+</ParamField>
+
+<CodeGroup>
+
+```bash Wait one second (20 ticks)
+wait 20
+```
+
+```bash Wait between 1 and 5 seconds
+wait 20 to 100
+```
+
+```bash Compact range syntax
+wait 20-35
+```
+
+</CodeGroup>

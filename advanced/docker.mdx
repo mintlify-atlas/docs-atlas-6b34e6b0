@@ -1,0 +1,169 @@
+---
+title: "Run Minecraft Console Client with Docker"
+description: "Use Docker to run MCC in an isolated container with no .NET install required, making it easy to keep a 24/7 connection to any Minecraft Java server."
+---
+
+Docker lets you run Minecraft Console Client in a self-contained environment without installing .NET on your host machine. The container downloads the latest MCC binary automatically on startup, mounts a volume so your config persists between runs, and can be left running continuously on any Linux host or VPS.
+
+<Warning>
+  MCC must be started in interactive mode due to a ConsoleInteractive limitation. Starting in fully headless mode can cause MCC to crash. Use the interactive command below, then detach with `CTRL+P` followed by `CTRL+Q` to leave it running in the background.
+</Warning>
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) installed on your machine or server
+- [Git](https://git-scm.com/) (required only if you are building the image from source)
+
+## Getting started
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the MCC repository to get the `Docker/` directory, which contains the `Dockerfile`, `docker-compose.yml`, and startup script:
+
+    ```bash
+    git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+    ```
+  </Step>
+
+  <Step title="Build the Docker image">
+    Navigate into the `Docker` directory and build the image:
+
+    ```bash
+    cd Minecraft-Console-Client/Docker
+    docker build -t minecraft-console-client:latest .
+    ```
+
+    The `Dockerfile` uses the official .NET SDK base image and copies in `start-latest.sh`, which auto-downloads the latest MCC release binary at container startup.
+  </Step>
+
+  <Step title="Run the container interactively">
+    Start MCC in interactive mode. Use a volume mount so the config file (`MinecraftClient.ini`) is stored on your host and survives container restarts:
+
+    ```bash
+    docker run -it -v /path/on/your/machine:/opt/data minecraft-console-client:latest
+    ```
+
+    Replace `/path/on/your/machine` with the directory on your host where you want to store MCC data. Omit the `-v` flag entirely if you do not need a persistent config.
+
+    MCC will launch inside the container and prompt you to log in.
+  </Step>
+
+  <Step title="Detach and leave MCC running">
+    To leave MCC running in the background without stopping it, press `CTRL+P` then `CTRL+Q`. This detaches your terminal from the container while the process continues running.
+
+    To reattach to the running container later:
+
+    ```bash
+    docker attach <container-name-or-id>
+    ```
+  </Step>
+</Steps>
+
+## Viewing logs
+
+To inspect MCC output from a detached container:
+
+```bash
+docker logs <container-name-or-id>
+```
+
+Add `--follow` to stream logs in real time:
+
+```bash
+docker logs --follow <container-name-or-id>
+```
+
+## Stopping and restarting
+
+```bash
+# Stop the container
+docker stop <container-name-or-id>
+
+# Start it again
+docker start <container-name-or-id>
+
+# Stop and remove the container
+docker rm -f <container-name-or-id>
+```
+
+## Using a specific MCC version
+
+By default the startup script downloads the latest release. To pin a specific version, pass the `MCC_VERSION` environment variable when running the container:
+
+```bash
+docker run -it -e MCC_VERSION=20220817-29 -v /path/on/your/machine:/opt/data minecraft-console-client:latest
+```
+
+To use a specific CPU platform (for example ARM64), set `MCC_PLATFORM`:
+
+```bash
+docker run -it -e MCC_PLATFORM=linux-arm64 -v /path/on/your/machine:/opt/data minecraft-console-client:latest
+```
+
+To skip re-downloading the binary on each run (if you already have `MinecraftClient` in the mounted volume), set `MCC_SKIP_REDOWNLOAD`:
+
+```bash
+docker run -it -e MCC_SKIP_REDOWNLOAD=1 -v /path/on/your/machine:/opt/data minecraft-console-client:latest
+```
+
+## Docker Compose
+
+The `Docker/docker-compose.yml` in the repository maps the container's `/opt/data` directory to a `data/` folder next to the compose file:
+
+```yaml
+version: '2'
+
+services:
+  MCC:
+    image: 'minecraft-console-client:latest'
+    container_name: 'MinecraftConsoleClient'
+    volumes:
+    - './data:/opt/data'
+```
+
+### Interactive session with Compose
+
+Use `docker-compose run` when you need to interact with MCC (type commands, see live output):
+
+```bash
+docker-compose run MCC
+```
+
+Remove the container when you are done:
+
+```bash
+docker-compose down
+```
+
+### Background session with Compose
+
+If you have already populated `MinecraftClient.ini` inside the `data/` directory, you can start MCC in the background with:
+
+```bash
+docker-compose up -d
+```
+
+<Note>
+  When running with `docker-compose up` or `docker-compose up -d` you cannot send commands to MCC interactively. Use `docker-compose run MCC` if you need an interactive session.
+</Note>
+
+Stop and remove the container:
+
+```bash
+docker-compose down
+```
+
+## Volume and config
+
+The container stores all runtime data (config file, logs, scripts) under `/opt/data`. Mounting a host directory there lets you edit `MinecraftClient.ini` from your host without entering the container:
+
+```bash
+# Edit config from the host (example path)
+nano /path/on/your/machine/MinecraftClient.ini
+```
+
+On the next run, MCC picks up the updated config automatically.
+
+## Building from the Dockerfile
+
+The `Dockerfile` in `Docker/` downloads MCC at runtime rather than baking a specific version into the image, keeping the image small. If you want to embed a specific binary, modify `start-latest.sh` before building, or build a custom image that uses the source-based build workflow described in [Building from source](/advanced/building-from-source).

@@ -1,0 +1,224 @@
+---
+title: 'Chat and Connection Commands'
+description: 'Reference for MCC commands that send chat messages, manage server connections, reconnect, disconnect, query the player list, and report server TPS.'
+---
+
+Chat and connection commands let you send messages to the server, change which server MCC is connected to, and query live server state such as the player list and tick rate. Most of these commands work without any optional features enabled.
+
+---
+
+## `send`
+
+Send a chat message or a Minecraft server command to the connected server.
+
+**Syntax:** `send <text>`
+
+<ParamField path="text" type="string" required>
+  The text to send. Prefix with `/` to send a Minecraft server command instead of a chat message.
+</ParamField>
+
+<CodeGroup>
+
+```bash Send a chat message
+/send Hello, world!
+```
+
+```bash Send a server command
+/send /tp Steve 0 64 0
+```
+
+```bash In a script (no leading slash)
+send Hello from a script
+```
+
+</CodeGroup>
+
+---
+
+## `connect`
+
+Connect to a server and resume any running script. The current session is replaced.
+
+**Syntax:** `connect <server> [account]`
+
+<ParamField path="server" type="string" required>
+  A server IP address (with optional port, e.g. `mc.example.com:25565`) or a server alias defined in the servers file.
+</ParamField>
+
+<ParamField path="account" type="string">
+  An account alias defined in the accounts file. When omitted, the current account is reused.
+</ParamField>
+
+<Note>
+  Server and account aliases are configured in `serverlist` and `accountlist` inside `MinecraftClient.ini`.
+</Note>
+
+<CodeGroup>
+
+```bash Connect by IP
+/connect mc.example.com
+```
+
+```bash Connect with port and account alias
+/connect mc.example.com:25565 myalt
+```
+
+```bash In a script
+connect mc.example.com myalt
+```
+
+</CodeGroup>
+
+---
+
+## `disconnect`
+
+Disconnect from the current server. MCC remains running at the server selection prompt.
+
+**Syntax:** `disconnect`
+
+```bash
+/disconnect
+```
+
+---
+
+## `reco`
+
+Disconnect and immediately reconnect to the same server. Optionally switch to a different account for the reconnect.
+
+**Syntax:** `reco [account]`
+
+<ParamField path="account" type="string">
+  An account alias defined in the accounts file. When omitted, the current account is reused.
+</ParamField>
+
+<CodeGroup>
+
+```bash Reconnect with the same account
+/reco
+```
+
+```bash Reconnect with a different account alias
+/reco myalt
+```
+
+</CodeGroup>
+
+---
+
+## `exit` / `quit`
+
+Disconnect from the server and close MCC. `quit` is an alias for `exit`.
+
+**Syntax:** `exit [exitCode]`
+
+<ParamField path="exitCode" type="number">
+  Optional integer exit code to pass to the operating system. Defaults to `0`.
+</ParamField>
+
+<CodeGroup>
+
+```bash Exit normally
+/exit
+```
+
+```bash Exit with a custom code
+/exit 1
+```
+
+</CodeGroup>
+
+---
+
+## `reload`
+
+Reload the active configuration file and restart chat bots. Useful when you have edited `MinecraftClient.ini` while MCC is running.
+
+**Syntax:** `reload`
+
+<Warning>
+  Some settings are applied only at startup and are not reloaded. Settings passed on the command line always override file values and are not affected by reload.
+</Warning>
+
+```bash
+/reload
+```
+
+---
+
+## `list`
+
+List all players currently visible in the server's tab list. Uses tab list data sent by the server, so players hidden from the server tab list will not appear.
+
+**Syntax:** `list`
+
+```bash
+/list
+```
+
+---
+
+## `tab`
+
+Show the player tab list in a more detailed format than `/list`, including ping, team prefixes, and display names.
+
+**Syntax:** `tab`
+
+In classic console mode, `/tab` prints a formatted table. In TUI mode, it opens a live overlay that refreshes automatically. Press `Esc` to close the TUI overlay.
+
+<Note>
+  To enable the team column in the tab list output, set `Console.TabList.ShowTeams = true` in your configuration.
+</Note>
+
+```bash
+/tab
+```
+
+---
+
+## `tps`
+
+Report the current server TPS (ticks per second). The output is color-coded: green for 15+, yellow for 10-14, red for below 10.
+
+**Syntax:** `tps`
+
+```bash
+/tps
+```
+
+---
+
+## `teams`
+
+List all scoreboard teams the server has sent, including their members and settings such as friendly fire, name-tag visibility, and color.
+
+**Syntax:** `teams`
+
+```bash
+/teams
+```
+
+---
+
+## `help`
+
+Show a list of all registered internal commands, or detailed usage for a specific command.
+
+**Syntax:** `help [command]`
+
+<Note>
+  To get help from the Minecraft server (e.g. `/help` as a server command), use `send /help` instead.
+</Note>
+
+<CodeGroup>
+
+```bash List all commands
+/help
+```
+
+```bash Get help for a specific command
+/help move
+```
+
+</CodeGroup>

@@ -1,0 +1,423 @@
+---
+title: 'Movement and World Commands'
+description: 'Reference for MCC commands that control player movement, look direction, chunk loading status, block inspection, and world interactions.'
+---
+
+Movement and world commands let you navigate the game world, query block and chunk state, interact with entities and beds, and control look direction. Most of these commands require [Terrain and Movements](../../configuration/overview) to be enabled in `MinecraftClient.ini`.
+
+<Note>
+  Terrain and Movements is not supported on Minecraft 1.4.6-1.6.4. Movement pathfinding does not support swimming or knockback.
+</Note>
+
+---
+
+## `move`
+
+Move to a direction, a set of coordinates, or toggle terrain processing. Supports relative coordinates using `~`.
+
+**Syntax:** `move <on|off|get|up|down|east|west|north|south|center|x y z|gravity [on|off]> [-f]`
+
+<ParamField path="direction" type="string">
+  One of `up`, `down`, `east`, `west`, `north`, `south`. Moves one block in the given direction.
+</ParamField>
+
+<ParamField path="x y z" type="number">
+  Absolute or relative (using `~`) coordinates to pathfind to.
+</ParamField>
+
+<ParamField path="on | off" type="string">
+  Enable or disable terrain processing without disconnecting.
+</ParamField>
+
+<ParamField path="get" type="string">
+  Print the current player location.
+</ParamField>
+
+<ParamField path="center" type="string">
+  Move to the center of the current block.
+</ParamField>
+
+<ParamField path="gravity [on|off]" type="string">
+  Toggle gravity simulation. When omitted, prints the current state.
+</ParamField>
+
+<ParamField path="-f" type="string">
+  Force unsafe movements such as falling, walking through fire, or off ledges.
+</ParamField>
+
+<Warning>
+  Without `-f`, the pathfinder refuses routes it considers unsafe. Add `-f` to override this check.
+</Warning>
+
+<CodeGroup>
+
+```bash Move to coordinates
+/move 128 64 -32
+```
+
+```bash Move using relative coordinates
+/move ~ ~1 ~
+```
+
+```bash Walk one block north
+/move north
+```
+
+```bash Snap to block center
+/move center
+```
+
+```bash Enable gravity
+/move gravity on
+```
+
+```bash Print current location
+/move get
+```
+
+```bash Force a fall (unsafe)
+/move 128 50 -32 -f
+```
+
+</CodeGroup>
+
+---
+
+## `look`
+
+Change the player's look direction. When called with no arguments, reports the block currently being looked at within 8 blocks.
+
+**Syntax:** `look <up|down|east|west|north|south|yaw pitch|x y z>`
+
+<ParamField path="direction" type="string">
+  One of `up`, `down`, `east`, `west`, `north`, `south`.
+</ParamField>
+
+<ParamField path="yaw pitch" type="number">
+  Explicit yaw and pitch angles in degrees.
+</ParamField>
+
+<ParamField path="x y z" type="number">
+  Look toward a specific block location.
+</ParamField>
+
+<CodeGroup>
+
+```bash Look up
+/look up
+```
+
+```bash Look east
+/look east
+```
+
+```bash Look by angle
+/look 90.0 -30.0
+```
+
+```bash Look at a block
+/look 128 64 -32
+```
+
+```bash Report what you are looking at
+/look
+```
+
+</CodeGroup>
+
+---
+
+## `sneak`
+
+Toggle sneaking on or off.
+
+**Syntax:** `sneak`
+
+```bash
+/sneak
+```
+
+---
+
+## `minimap`
+
+Control the TUI minimap overlay. The minimap is only available in TUI mode (`mcc-tui`).
+
+**Syntax:**
+
+```
+minimap [on|off]
+minimap zoom [in|out|<1-16>]
+minimap names [players|hostile|neutral|passive] [on|off]
+minimap names [all_on|all_off]
+minimap position [top_left|top_right|center|bottom_left|bottom_right]
+minimap cave [auto|on|off]
+```
+
+<ParamField path="on | off" type="string">
+  Show or hide the minimap overlay. With no argument, toggles the current state.
+</ParamField>
+
+<ParamField path="zoom in|out|level" type="string">
+  Zoom in, zoom out, or set an explicit zoom level between 1 (closest) and 16 (furthest).
+</ParamField>
+
+<ParamField path="names" type="string">
+  Enable or disable entity name labels on the minimap per category: `players`, `hostile`, `neutral`, `passive`. Use `all_on` or `all_off` to affect all categories at once.
+</ParamField>
+
+<ParamField path="position" type="string">
+  Set the minimap position on screen: `top_left`, `top_right`, `center`, `bottom_left`, `bottom_right`.
+</ParamField>
+
+<ParamField path="cave auto|on|off" type="string">
+  Set cave mode. `auto` switches based on player Y level. `on` always shows underground layers. `off` always shows surface.
+</ParamField>
+
+<Warning>
+  The `minimap` command only works when MCC is running in TUI mode. It will fail in classic console mode.
+</Warning>
+
+<CodeGroup>
+
+```bash Toggle minimap
+/minimap
+```
+
+```bash Show minimap
+/minimap on
+```
+
+```bash Zoom in
+/minimap zoom in
+```
+
+```bash Set zoom level
+/minimap zoom 4
+```
+
+```bash Show player names on minimap
+/minimap names players on
+```
+
+```bash Hide all entity names
+/minimap names all_off
+```
+
+```bash Move minimap to top right
+/minimap position top_right
+```
+
+```bash Enable cave mode
+/minimap cave on
+```
+
+</CodeGroup>
+
+---
+
+## `chunk`
+
+Display chunk loading status as an ASCII (or emoji) map centered on the player. Each cell represents one chunk.
+
+**Syntax:** `chunk status [chunkX chunkZ | locationX locationY locationZ]`
+
+<ParamField path="chunkX chunkZ" type="number">
+  Highlight a specific chunk by chunk coordinates.
+</ParamField>
+
+<ParamField path="locationX locationY locationZ" type="number">
+  Highlight the chunk at a world location. Supports relative coordinates with `~`.
+</ParamField>
+
+<Note>
+  Emoji rendering requires a terminal with Unicode emoji support (for example Windows Terminal or Alacritty). Disable emojis with `EnableEmoji = false` in your configuration.
+</Note>
+
+<CodeGroup>
+
+```bash Show chunk map centered on player
+/chunk status
+```
+
+```bash Highlight a specific chunk
+/chunk status 8 -2
+```
+
+```bash Highlight the chunk at a world location
+/chunk status 128 64 -32
+```
+
+</CodeGroup>
+
+---
+
+## `blockinfo`
+
+Report the block type at a given location. When called with no arguments, uses the player's current position.
+
+**Syntax:** `blockinfo [x y z] [-s]`
+
+<ParamField path="x y z" type="number">
+  Block coordinates. Supports relative coordinates with `~`. Defaults to the player's current position.
+</ParamField>
+
+<ParamField path="-s" type="string">
+  Also report the six surrounding block types (positive and negative X, Y, Z).
+</ParamField>
+
+<Note>
+  Terrain and Movements must be enabled for this command to work.
+</Note>
+
+<CodeGroup>
+
+```bash Block at player position
+/blockinfo
+```
+
+```bash Block at explicit coordinates
+/blockinfo 128 63 -32
+```
+
+```bash Block and all six neighbours
+/blockinfo 128 63 -32 -s
+```
+
+```bash Block below the player
+/blockinfo ~ ~-1 ~
+```
+
+</CodeGroup>
+
+---
+
+## `entity`
+
+List entities around you or interact with a specific entity.
+
+**Syntax:** `entity [<id|entitytype> <attack|use>]`
+
+<ParamField path="id | entitytype" type="string">
+  The numeric entity ID or entity type name (for example `Zombie`, `Cow`).
+</ParamField>
+
+<ParamField path="attack | use" type="string">
+  `attack` hits the entity. `use` right-click interacts with it.
+</ParamField>
+
+<Note>
+  Inventory Handling and Entity Handling must both be enabled for this command to work.
+</Note>
+
+<CodeGroup>
+
+```bash List nearby entities
+/entity
+```
+
+```bash Attack a zombie
+/entity Zombie attack
+```
+
+```bash Interact with entity ID 42
+/entity 42 use
+```
+
+</CodeGroup>
+
+---
+
+## `bed`
+
+Sleep in or leave a bed.
+
+**Syntax:** `bed leave | sleep <x> <y> <z> | sleep <radius>`
+
+<ParamField path="leave" type="string">
+  Leave the current bed.
+</ParamField>
+
+<ParamField path="sleep x y z" type="number">
+  Sleep in the bed at the given coordinates. Supports relative coordinates with `~`.
+</ParamField>
+
+<ParamField path="sleep radius" type="number">
+  Automatically find a bed within the given radius (in blocks) and sleep in it.
+</ParamField>
+
+<CodeGroup>
+
+```bash Leave the current bed
+/bed leave
+```
+
+```bash Sleep in a bed at coordinates
+/bed sleep 124 84 76
+```
+
+```bash Sleep using relative coordinates
+/bed sleep ~ ~ ~-2
+```
+
+```bash Find a bed within 50 blocks and sleep
+/bed sleep 50
+```
+
+</CodeGroup>
+
+---
+
+## `respawn`
+
+Respawn after death, equivalent to clicking the in-game Respawn button.
+
+**Syntax:** `respawn`
+
+```bash
+/respawn
+```
+
+---
+
+## `health`
+
+Show the player's current health and food (saturation) level.
+
+**Syntax:** `health`
+
+```bash
+/health
+```
+
+---
+
+## `wait`
+
+Pause script execution for a fixed or random number of ticks. 20 ticks equals approximately one second. This command is only useful inside scripts.
+
+**Syntax:** `wait <ticks> | wait <min> to <max>`
+
+<ParamField path="ticks" type="number">
+  Number of ticks to wait.
+</ParamField>
+
+<ParamField path="min to max" type="number">
+  Wait for a random number of ticks between `min` and `max`. You can use `-` instead of `to`.
+</ParamField>
+
+<CodeGroup>
+
+```bash Wait one second
+wait 20
+```
+
+```bash Wait a random 1-5 seconds
+wait 20 to 100
+```
+
+```bash Compact range syntax
+wait 20-35
+```
+
+</CodeGroup>

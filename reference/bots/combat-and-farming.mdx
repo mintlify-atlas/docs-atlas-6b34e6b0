@@ -1,0 +1,540 @@
+---
+title: 'Combat, Farming, and Movement Bots Reference'
+description: 'Full configuration reference for AutoAttack, AutoDig, AutoDrop, AutoEat, AutoFishing, Farmer, FollowPlayer, and ItemsCollector built-in bots.'
+---
+
+These bots automate combat, resource gathering, farming, and movement tasks. Most require **Inventory Handling**, **Terrain and Movements**, or **Entity Handling** to be enabled in the main configuration. Check the requirement note under each bot before enabling it.
+
+<Note>
+  Inventory Handling, Terrain and Movements, and Entity Handling are not available on all protocol versions. Refer to the version support table in the main documentation to confirm your server version supports the required features.
+</Note>
+
+---
+
+## AutoAttack
+
+Automatically attack mobs in range. Supports single-target or multi-target modes and a configurable entity whitelist or blacklist.
+
+**Config section:** `[ChatBot.AutoAttack]`
+
+<Warning>
+  Requires **Inventory Handling** and **Entity Handling** to be enabled.
+</Warning>
+
+```toml
+[ChatBot.AutoAttack]
+Enabled = false
+Mode = "single"
+Priority = "distance"
+Cooldown_Time = { Custom = false, value = 1.0 }
+Attack_Range = 4.0
+Interaction = "Attack"
+Attack_Hostile = true
+Attack_Passive = false
+List_Mode = "whitelist"
+Entites_List = [ "Zombie", "Cow" ]
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoAttack bot.
+</ParamField>
+
+<ParamField path="Mode" type="string" default="single">
+  Attack mode.
+
+  - `single` — attack one mob per swing.
+  - `multi` — attack all mobs within range per swing.
+</ParamField>
+
+<ParamField path="Priority" type="string" default="distance">
+  How to select the next target when multiple mobs are in range.
+
+  - `distance` — prefer the closest mob.
+  - `health` — prefer the mob with the lowest current health.
+</ParamField>
+
+<ParamField path="Cooldown_Time" type="inline table" default="{ Custom = false, value = 1.0 }">
+  Attack cooldown configuration. When `Custom` is `false`, MCC calculates the cooldown from the server TPS. Set `Custom = true` and provide a `value` in seconds to override.
+
+  ```toml
+  Cooldown_Time = { Custom = true, value = 1.5 }
+  ```
+</ParamField>
+
+<ParamField path="Attack_Range" type="double" default="4.0">
+  Maximum distance in blocks at which the bot will attack a mob. The allowed range is `1.0` to `4.0`.
+</ParamField>
+
+<ParamField path="Interaction" type="string" default="Attack">
+  The type of interaction to perform on each target.
+
+  - `Attack` — attack only.
+  - `Interact` — interact (right-click) only.
+  - `InteractAt` — both interact and attack.
+</ParamField>
+
+<ParamField path="Attack_Hostile" type="boolean" default="true">
+  Attack hostile mobs (skeletons, zombies, creepers, etc.).
+</ParamField>
+
+<ParamField path="Attack_Passive" type="boolean" default="false">
+  Attack passive mobs (cows, pigs, sheep, etc.).
+</ParamField>
+
+<ParamField path="List_Mode" type="string" default="whitelist">
+  Controls how `Entites_List` is applied.
+
+  - `whitelist` — only attack mobs listed in `Entites_List`.
+  - `blacklist` — attack all mobs except those listed in `Entites_List`.
+</ParamField>
+
+<ParamField path="Entites_List" type="string[]" default='[ "Zombie", "Cow" ]'>
+  List of entity type names used as the whitelist or blacklist depending on `List_Mode`. Full entity type names are available in the [MCC entity reference](https://mccteam.github.io/r/entity/#L15).
+
+  ```toml
+  Entites_List = [ "Spider", "Skeleton", "Zombie" ]
+  ```
+</ParamField>
+
+---
+
+## AutoDig
+
+Automatically dig blocks at the location the bot is looking at, at a fixed coordinate, or only when the looked-at block is in your target list.
+
+**Config section:** `[ChatBot.AutoDig]`
+
+<Warning>
+  Requires **Inventory Handling** and **Terrain and Movements** to be enabled.
+</Warning>
+
+**Commands:** `/digbot start` and `/digbot stop`
+
+```toml
+[ChatBot.AutoDig]
+Enabled = false
+Mode = "lookat"
+Location_Order = "distance"
+Auto_Start_Delay = 3.0
+Auto_Tool_Switch = false
+Durability_Limit = 2
+Drop_Low_Durability_Tools = false
+Dig_Timeout = 60.0
+Log_Block_Dig = true
+List_Type = "whitelist"
+Blocks = [ "Cobblestone", "Stone" ]
+Locations = []
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoDig bot.
+</ParamField>
+
+<ParamField path="Mode" type="string" default="lookat">
+  Dig mode.
+
+  - `lookat` — dig the block the bot is currently looking at.
+  - `fixedpos` — dig blocks at the coordinates listed in `Locations`.
+  - `both` — dig only when the looked-at block is also in `Locations`.
+</ParamField>
+
+<ParamField path="Locations" type="array of inline tables">
+  List of block coordinates to dig when `Mode` is `fixedpos` or `both`.
+
+  ```toml
+  Locations = [
+    { x = 123.5, y = 64.0, z = 234.5 },
+    { x = 124.5, y = 63.0, z = 235.5 },
+  ]
+  ```
+</ParamField>
+
+<ParamField path="Location_Order" type="string" default="distance">
+  Order in which blocks from `Locations` are dug.
+
+  - `distance` — dig the closest block first.
+  - `index` — dig in list order.
+</ParamField>
+
+<ParamField path="Auto_Start_Delay" type="float" default="3.0">
+  Seconds to wait after joining before digging starts automatically. Set to `-1` to disable automatic start and require `/digbot start`.
+</ParamField>
+
+<ParamField path="Auto_Tool_Switch" type="boolean" default="false">
+  Automatically switch to the most suitable tool before digging each block. Tools below `Durability_Limit` are skipped.
+</ParamField>
+
+<ParamField path="Durability_Limit" type="integer" default="2">
+  Minimum remaining durability required before a tool is used. Set to `0` to disable the durability check.
+</ParamField>
+
+<ParamField path="Drop_Low_Durability_Tools" type="boolean" default="false">
+  Drop a tool when it is replaced due to its durability falling below `Durability_Limit`. Only effective when `Auto_Tool_Switch` is `true`.
+</ParamField>
+
+<ParamField path="Dig_Timeout" type="float" default="60.0">
+  Seconds to wait for a block to be broken before giving up and searching for another block. Useful when blocks regenerate or are protected.
+</ParamField>
+
+<ParamField path="Log_Block_Dig" type="boolean" default="true">
+  Print a console message each time a block is dug.
+</ParamField>
+
+<ParamField path="List_Type" type="string" default="whitelist">
+  Controls how `Blocks` is applied.
+
+  - `whitelist` — only dig the block types listed in `Blocks`.
+  - `blacklist` — dig any block type except those in `Blocks`.
+</ParamField>
+
+<ParamField path="Blocks" type="string[]" default='[ "Cobblestone", "Stone" ]'>
+  Block type names for the whitelist or blacklist. Full block type names are available in the [MCC block reference](https://mccteam.github.io/r/block/#L15).
+
+  ```toml
+  Blocks = [ "DiamondOre", "RedstoneOre", "EmeraldOre" ]
+  ```
+</ParamField>
+
+---
+
+## AutoDrop
+
+Automatically drop items from your inventory based on a configurable include/exclude list.
+
+**Config section:** `[ChatBot.AutoDrop]`
+
+<Warning>
+  Requires **Inventory Handling** to be enabled.
+</Warning>
+
+```toml
+[ChatBot.AutoDrop]
+Enabled = false
+Mode = "include"
+Items = [ "Cobblestone", "Dirt" ]
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoDrop bot.
+</ParamField>
+
+<ParamField path="Mode" type="string" default="include">
+  Drop mode.
+
+  - `include` — drop only the items listed in `Items`.
+  - `exclude` — keep the items listed in `Items` and drop everything else.
+  - `everything` — drop all items regardless of the `Items` list.
+</ParamField>
+
+<ParamField path="Items" type="string[]" default='[ "Cobblestone", "Dirt" ]'>
+  List of item type names used by the `include` or `exclude` modes. Full item type names are available in the [MCC item reference](https://mccteam.github.io/r/item/#L12).
+
+  ```toml
+  Items = [ "Totem", "GlassBottle" ]
+  ```
+</ParamField>
+
+---
+
+## AutoEat
+
+Automatically eat food when your hunger level drops below a configurable threshold.
+
+**Config section:** `[ChatBot.AutoEat]`
+
+<Warning>
+  Requires **Inventory Handling** to be enabled.
+</Warning>
+
+```toml
+[ChatBot.AutoEat]
+Enabled = false
+Threshold = 6
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoEat bot.
+</ParamField>
+
+<ParamField path="Threshold" type="integer" default="6">
+  Hunger level (out of 20) below which the bot will automatically eat. The bot selects the first suitable food item it finds in the inventory.
+</ParamField>
+
+---
+
+## AutoFishing
+
+Automatically fish by detecting bobber movement, bobber velocity, and splash sounds to identify bites and reel in the line.
+
+**Config section:** `[ChatBot.AutoFishing]`
+
+<Warning>
+  Requires **Entity Handling** to be enabled. For automatic rod switching and durability checks, also enable **Inventory Handling**. For position/angle adjustment after a catch, enable **Terrain and Movements**.
+</Warning>
+
+<Tip>
+  Using a fishing rod with the **Mending** enchantment is strongly recommended to keep the rod in good condition during long sessions.
+</Tip>
+
+**Quick start:**
+1. Hold a fishing rod and aim toward water before connecting with MCC.
+2. Set `Enabled = true` in the config.
+3. Connect — fishing starts automatically after the `Fishing_Delay` period.
+
+```toml
+[ChatBot.AutoFishing]
+Enabled = false
+Antidespawn = false
+Mainhand = true
+Auto_Start = true
+Cast_Delay = 0.4
+Fishing_Delay = 3.0
+Fishing_Timeout = 300.0
+Durability_Limit = 2
+Auto_Rod_Switch = true
+Stationary_Threshold = 0.001
+Hook_Threshold = 0.2
+Enable_Velocity_Detection = true
+Velocity_Hook_Threshold = -0.2
+Enable_Sound_Detection = true
+Sound_Distance = 5.0
+Detection_Warmup = 1.0
+Log_Fish_Bobber = false
+Enable_Move = false
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoFishing bot.
+</ParamField>
+
+<ParamField path="Antidespawn" type="boolean" default="false">
+  Special-case option for certain server configurations. Leave at the default unless you are troubleshooting a specific despawn issue.
+</ParamField>
+
+<ParamField path="Mainhand" type="boolean" default="true">
+  Which hand holds the fishing rod. `true` = main hand, `false` = off hand.
+</ParamField>
+
+<ParamField path="Auto_Start" type="boolean" default="true">
+  Automatically cast the rod after joining the game or switching worlds. When `false`, you must start fishing manually.
+</ParamField>
+
+<ParamField path="Cast_Delay" type="float" default="0.4">
+  Seconds to wait after reeling in a catch before casting the rod again.
+</ParamField>
+
+<ParamField path="Fishing_Delay" type="float" default="3.0">
+  Seconds to wait after joining or switching worlds before auto-casting begins. Only used when `Auto_Start = true`.
+</ParamField>
+
+<ParamField path="Fishing_Timeout" type="float" default="300.0">
+  Seconds without a bite before the bot re-casts the rod.
+</ParamField>
+
+<ParamField path="Durability_Limit" type="integer" default="2">
+  Do not use a rod with less than this many durability points remaining (maximum is 64). Set to `0` to disable the check.
+</ParamField>
+
+<ParamField path="Auto_Rod_Switch" type="boolean" default="true">
+  Automatically switch to a fresh rod from the inventory when the current rod becomes unusable. Requires **Inventory Handling**.
+</ParamField>
+
+<ParamField path="Stationary_Threshold" type="float" default="0.001">
+  Maximum per-packet X/Z displacement at which the bobber is considered stationary. Increase if the rod reels in during casting; decrease if bites are not detected. Fine-tune using `Log_Fish_Bobber = true`.
+</ParamField>
+
+<ParamField path="Hook_Threshold" type="float" default="0.2">
+  Minimum Y-axis displacement of a stationary bobber required to count as a bite. Increase if small fluctuations cause false positives; decrease if real bites are missed.
+</ParamField>
+
+<ParamField path="Enable_Velocity_Detection" type="boolean" default="true">
+  Use the bobber velocity packet as an additional bite detection method. Improves reliability when nearby blocks constrain X/Z bobber movement.
+</ParamField>
+
+<ParamField path="Velocity_Hook_Threshold" type="float" default="-0.2">
+  Velocity Y threshold (blocks/tick) for velocity-based bite detection. Values below this threshold are treated as a bite. Keep this value negative.
+</ParamField>
+
+<ParamField path="Enable_Sound_Detection" type="boolean" default="true">
+  Detect bites by listening for nearby `entity.fishing_bobber.splash` sounds within `Sound_Distance` blocks of the tracked bobber.
+</ParamField>
+
+<ParamField path="Sound_Distance" type="float" default="5.0">
+  Maximum distance in blocks between a splash sound and the bobber for the sound to count as a bite event.
+</ParamField>
+
+<ParamField path="Detection_Warmup" type="float" default="1.0">
+  Seconds after bobber spawn before bite detection is active. This prevents the initial cast splash or entry motion from triggering a false bite.
+</ParamField>
+
+<ParamField path="Log_Fish_Bobber" type="boolean" default="false">
+  Log every bobber movement packet to the console. Enable temporarily to diagnose tuning issues with `Stationary_Threshold` and `Hook_Threshold`.
+</ParamField>
+
+<ParamField path="Enable_Move" type="boolean" default="false">
+  Move to a different position or angle after each catch. Useful on servers that penalise fishing from the same spot. Configure positions using `[[ChatBot.AutoFishing.Movements]]` subsections.
+</ParamField>
+
+### Movements subsection
+
+When `Enable_Move = true`, define one or more positions with `[[ChatBot.AutoFishing.Movements]]` entries. The bot cycles through them after each catch.
+
+```toml
+[[ChatBot.AutoFishing.Movements]]
+facing = { yaw = 12.34, pitch = -23.45 }
+
+[[ChatBot.AutoFishing.Movements]]
+XYZ = { x = 123.45, y = 64.0, z = -654.32 }
+facing = { yaw = -25.14, pitch = 36.25 }
+```
+
+Each entry supports:
+
+- `XYZ` — inline table with `x`, `y`, `z` coordinates to walk to before casting.
+- `facing` — inline table with `yaw` and `pitch` angles to look at after arriving.
+
+---
+
+## Farmer
+
+Plant, harvest, and bonemeal crops automatically within a configurable radius.
+
+**Config section:** `[ChatBot.Farmer]`
+
+<Warning>
+  Requires **Terrain and Movements** and **Inventory Handling** to be enabled. This bot is experimental and was primarily tested on 1.19.2. See known issues below.
+</Warning>
+
+**Supported crops:** Beetroot, Carrot, Melon, Netherwart, Pumpkin, Potato, Wheat
+
+**Commands:**
+
+```
+/farmer start <crop type> [radius:<radius>] [unsafe:<true|false>] [teleport:<true|false>] [debug:<true|false>]
+/farmer stop
+```
+
+Default radius is `30` blocks. Example:
+
+```
+/farmer start wheat radius:40
+/farmer start melon debug:true teleport:true
+```
+
+```toml
+[ChatBot.Farmer]
+Enabled = false
+Delay_Between_Tasks = 1.0
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the Farmer bot.
+</ParamField>
+
+<ParamField path="Delay_Between_Tasks" type="double" default="1.0">
+  Delay in seconds between each farming action (plant, break, bonemeal). Minimum value is `1.0`.
+</ParamField>
+
+<AccordionGroup>
+  <Accordion title="Known issues">
+    - Bonemeal is sometimes skipped for carrots, potatoes, and melon or pumpkin stems.
+    - The bot may jump onto crops and break farmland when approaching from a different height. Keep the farming area flat and fenced off.
+    - On thin platforms (1 block thick with air below), the bot can fall through farmland on login. Use a thicker platform.
+    - Farming netherwart on soul sand can trigger "invalid movement" kicks on some servers. Keep the netherwart area small and flat.
+    - Dropped items that land outside the farming area are not collected.
+    - The bot does not deposit harvested items into chests or warn when the inventory is full.
+    - Seeds and bonemeal are not refilled from chests automatically.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## FollowPlayer
+
+Follow a specific player using terrain pathfinding.
+
+**Config section:** `[ChatBot.FollowPlayer]`
+
+<Warning>
+  Requires **Terrain and Movements** and **Entity Handling** to be enabled.
+</Warning>
+
+<Note>
+  The pathfinding algorithm is not optimised for speed. Walk at a normal pace and occasionally pause to let the bot catch up. Avoid very low `Update_Limit` values — they can saturate the terrain handling thread and slow the bot further.
+</Note>
+
+**Commands:** `/follow <player name> [unsafe:<true|false>]`
+
+```toml
+[ChatBot.FollowPlayer]
+Enabled = false
+Update_Limit = 1.5
+Stop_At_Distance = 3.0
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the FollowPlayer bot.
+</ParamField>
+
+<ParamField path="Update_Limit" type="float" default="1.5">
+  Seconds between each pathfinding recalculation. Lower values make the bot more responsive but increase CPU load on the terrain handling thread.
+</ParamField>
+
+<ParamField path="Stop_At_Distance" type="float" default="3.0">
+  The bot stops following when it is within this many blocks of the target player. Prevents the bot from repeatedly pushing the player.
+</ParamField>
+
+---
+
+## ItemsCollector
+
+Move to and pick up dropped items on the ground.
+
+**Config section:** `[ChatBot.ItemsCollector]`
+
+<Warning>
+  Requires **Terrain and Movements** and **Entity Handling** to be enabled.
+</Warning>
+
+```toml
+[ChatBot.ItemsCollector]
+Enabled = false
+Collect_All_Item_Types = false
+Items_Whitelist = [ "Diamond", "NetheriteIngot" ]
+Delay_Between_Tasks = 300
+Collection_Radius = 30.0
+Always_Return_To_Start = true
+Prioritize_Clusters = true
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the ItemsCollector bot.
+</ParamField>
+
+<ParamField path="Collect_All_Item_Types" type="boolean" default="false">
+  When `true`, pick up every dropped item regardless of type. When `false`, only move toward positions where `Items_Whitelist` items are present.
+
+  <Note>
+    Even when `false`, the bot may incidentally pick up non-whitelisted items that are nearby. The whitelist only controls which positions the bot navigates to.
+  </Note>
+</ParamField>
+
+<ParamField path="Items_Whitelist" type="string[]" default='[ "Diamond", "NetheriteIngot" ]'>
+  Item types the bot targets when `Collect_All_Item_Types` is `false`. Full item type names are available in the [MCC item reference](https://mccteam.github.io/r/item/#L12).
+</ParamField>
+
+<ParamField path="Delay_Between_Tasks" type="integer" default="300">
+  Milliseconds between item scans. Recommended range is 300-500 ms.
+</ParamField>
+
+<ParamField path="Collection_Radius" type="double" default="30.0">
+  The radius in blocks within which the bot looks for items to collect.
+</ParamField>
+
+<ParamField path="Always_Return_To_Start" type="boolean" default="true">
+  Return to the bot's starting position after there are no more items to collect within `Collection_Radius`.
+</ParamField>
+
+<ParamField path="Prioritize_Clusters" type="boolean" default="true">
+  When `true`, navigate toward the densest cluster of items rather than always the nearest single item.
+</ParamField>

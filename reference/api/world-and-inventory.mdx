@@ -1,0 +1,360 @@
+---
+title: "World Data and Inventory API"
+description: "Reference for MCC's World and Inventory APIs: reading blocks, querying player location, inspecting containers and items, and performing slot actions."
+---
+
+MCC can maintain a local copy of the Minecraft world around the player and a snapshot of open inventories. Both subsystems are opt-in: terrain handling and inventory handling must each be enabled in `MinecraftClient.ini` (or the equivalent TOML config) before a bot can use these APIs. Calling world or inventory methods when the corresponding subsystem is disabled will return empty or default values; always guard with the feature-check methods described below.
+
+<Note>
+Terrain and inventory data are only available from `AfterGameJoined()` onward. Do not read world or inventory state inside `Initialize()`.
+</Note>
+
+---
+
+## Feature guards
+
+Always check whether a subsystem is active before using it.
+
+### GetTerrainEnabled
+
+```csharp
+public bool GetTerrainEnabled()
+```
+
+Returns `true` if terrain and movement handling is currently active. This setting can be toggled at runtime with `SetTerrainEnabled(bool)`, but enabling it takes effect only after the next relog, respawn, or world change.
+
+---
+
+### GetInventoryEnabled
+
+```csharp
+public bool GetInventoryEnabled()
+```
+
+Returns `true` if inventory handling is currently active.
+
+---
+
+## World API
+
+### GetWorld
+
+```csharp
+protected World GetWorld()
+```
+
+Returns the `World` object representing the currently loaded terrain. The `World` class stores chunk columns indexed by `(chunkX, chunkZ)` and exposes block queries and dimension metadata.
+
+<Warning>
+`GetWorld()` is only meaningful when `GetTerrainEnabled()` returns `true`. Calling it while terrain is disabled returns a `World` instance that contains no loaded chunks.
+</Warning>
+
+---
+
+### GetCurrentLocation
+
+```csharp
+protected Location GetCurrentLocation()
+```
+
+Returns the current feet position of the player as a `Location` struct.
+
+**Return type:** `Location` with `double X`, `double Y`, `double Z` fields.
+
+---
+
+### GetBlock
+
+```csharp
+// Call on the World object returned by GetWorld()
+Block GetBlock(Location location)  // World member
+```
+
+Returns the `Block` at the given `Location`. The block's material is exposed via `block.Type`, which is a `Material` enum value.
+
+<ParamField path="location" type="Location" required>
+  World coordinates of the block to query. Use integer-aligned coordinates (the `Location` struct accepts `double` but block lookups snap to block grid).
+</ParamField>
+
+```csharp
+// Example
+Material blockType = GetWorld().GetBlock(new Location(0, 64, 0)).Type;
+if (blockType == Material.RedstoneLampOn)
+    LogToConsole("Lamp is on!");
+```
+
+---
+
+### GetLookingBlock
+
+```csharp
+protected Tuple<bool, Location, Block> GetLookingBlock(
+    double maxDistance = 4.5, bool includeFluids = false)
+```
+
+Casts a ray from the player's eye position in the current look direction and returns the first block hit.
+
+<ParamField path="maxDistance" type="double">Maximum raycast distance in blocks. Default is `4.5`.</ParamField>
+<ParamField path="includeFluids" type="bool">Whether water and lava count as solid hits.</ParamField>
+
+**Returns** a tuple of `(bool hit, Location blockLocation, Block block)`. `hit` is `false` if no block was found within `maxDistance`.
+
+---
+
+## Location struct
+
+`Location` represents a point in 3D Minecraft world space.
+
+```csharp
+public struct Location
+{
+    public double X;
+    public double Y;   // vertical axis
+    public double Z;
+    public byte Status; // bitmask for relative coordinates (teleport packets)
+}
+```
+
+**Constructors:**
+
+```csharp
+new Location(double x, double y, double z)
+new Location(Location loc)   // copy constructor
+```
+
+**Useful methods:**
+
+| Method | Returns | Description |
+|---|---|---|
+| `Distance(Location other)` | `double` | Euclidean distance to `other` |
+| `DistanceSquared(Location other)` | `double` | Squared distance (faster, no sqrt) |
+| `ToFloor()` | `Location` | Floor each coordinate to the nearest integer block |
+| `ToCenter()` | `Location` | Center X/Z to block center (adds 0.5), keeps Y |
+| `EyesLocation()` | `Location` | Feet location offset up by 1.62 (player eye height) |
+| `Location.Parse(string x, string y, string z)` | `Location` | Parse from three string coordinates |
+
+---
+
+## Key Material enum values
+
+`Material` is a large enum covering every block type. Common values you are likely to query:
+
+| Value | Description |
+|---|---|
+| `Material.Air` | Empty space |
+| `Material.Stone` | Generic stone |
+| `Material.GrassBlock` | Grass block |
+| `Material.Dirt` | Dirt |
+| `Material.Water` | Water |
+| `Material.Lava` | Lava |
+| `Material.Sand` | Sand |
+| `Material.Gravel` | Gravel |
+| `Material.OakLog` | Oak log |
+| `Material.OakPlanks` | Oak planks |
+| `Material.Glass` | Glass |
+| `Material.Cobblestone` | Cobblestone |
+| `Material.Torch` | Torch |
+| `Material.Chest` | Chest |
+| `Material.CraftingTable` | Crafting table |
+| `Material.Furnace` | Furnace |
+| `Material.RedstoneLampOn` | Lit redstone lamp |
+| `Material.RedstoneLampOff` | Unlit redstone lamp |
+
+The full enum is defined in `MinecraftClient/Mapping/Material.cs`. Use `block.Type.IsSolid()` and `block.Type.IsFluid()` extension methods when you need category checks rather than exact material comparisons.
+
+---
+
+## Inventory API
+
+### GetPlayerInventory
+
+```csharp
+protected Container GetPlayerInventory()
+```
+
+Returns a read-only snapshot of the player's main inventory (window ID `0`). Do not write to the returned object; mutations have no server-side effect.
+
+---
+
+### GetInventories
+
+```csharp
+public Dictionary<int, Container> GetInventories()
+```
+
+Returns all currently tracked inventories, keyed by window ID. Window `0` is always the player inventory; higher IDs correspond to open server containers.
+
+---
+
+### CloseInventory
+
+```csharp
+protected bool CloseInventory(int inventoryID)
+```
+
+Sends a close-window packet to the server for the specified inventory.
+
+<ParamField path="inventoryID" type="int" required>Window ID to close.</ParamField>
+
+---
+
+### WindowAction
+
+```csharp
+protected bool WindowAction(int inventoryId, int slot, WindowActionType actionType)
+```
+
+Perform a low-level window action. This is the underlying method used by higher-level inventory helpers.
+
+<ParamField path="inventoryId" type="int" required>Window ID of the target container.</ParamField>
+<ParamField path="slot" type="int" required>Slot index within the container.</ParamField>
+<ParamField path="actionType" type="WindowActionType" required>
+  The action to perform. Common values: `LeftClick`, `RightClick`, `ShiftClick`, `DropItem`.
+</ParamField>
+
+---
+
+### GetItemMovingHelper
+
+```csharp
+protected ItemMovingHelper GetItemMovingHelper(Container container)
+```
+
+Returns an `ItemMovingHelper` for the given container. Use this helper to move items between slots in a structured way rather than composing raw `WindowAction` calls manually.
+
+---
+
+### GetCurrentSlot / ChangeSlot
+
+```csharp
+protected byte GetCurrentSlot()
+protected bool ChangeSlot(short slot)
+```
+
+Read or change the active hotbar slot (0-8).
+
+---
+
+### ClearInventories
+
+```csharp
+protected bool ClearInventories()
+```
+
+Clears all locally tracked inventory data. This does not affect the server-side inventory.
+
+---
+
+## Container class
+
+`Container` models a single inventory window.
+
+```csharp
+public class Container
+{
+    public int ID;                       // Window ID (0 = player inventory)
+    public ContainerType Type;           // Container type enum
+    public string? Title;               // Display title, if any
+    public int StateID;                  // Server-side state ID for action validation
+    public Dictionary<int, Item> Items;  // Slot index -> Item
+    public Dictionary<int, short> Properties; // Container-type-specific properties
+}
+```
+
+`Properties` is used by specialized containers: furnace cook progress, enchanting table options, beacon effect selection, and so on. See the Minecraft protocol wiki for property IDs.
+
+---
+
+## Item class
+
+Each entry in `Container.Items` is an `Item` instance:
+
+```csharp
+public class Item
+{
+    public ItemType Type;      // Item type enum
+    public int Count;          // Stack size
+    // NBT data (older versions) or structured components (1.20.6+)
+    public Dictionary<string, object>? NBT;
+    public string? DisplayName;
+}
+```
+
+<Note>
+On Minecraft 1.20.6 and newer, item data uses structured components rather than raw NBT. The `Item` class bridges both representations, but the internal field names reflect the legacy structure. Check `ItemType.Null` or `ItemType.Air` to test for an empty slot.
+</Note>
+
+---
+
+## Working example
+
+The following script is adapted from `config/sample-script-with-world-access.cs` and monitors a redstone lamp at a fixed coordinate every 10 ticks.
+
+```csharp
+//MCCScript 1.0
+
+MCC.LoadBot(new WatchLamp());
+
+//MCCScript Extensions
+
+class WatchLamp : ChatBot
+{
+    int lampX = 0;
+    int lampY = 64;
+    int lampZ = 0;
+
+    int tickCount = 0;
+    Location lampLoc;
+
+    public WatchLamp()
+    {
+        if (!GetTerrainEnabled())
+        {
+            LogToConsole("Terrain handling is disabled - cannot watch blocks.");
+            UnloadBot();
+            return;
+        }
+        lampLoc = new Location(lampX, lampY, lampZ);
+        LogToConsole("Watching lamp at " + lampLoc);
+    }
+
+    public override void Update()
+    {
+        if (++tickCount < 10)
+            return;
+        tickCount = 0;
+
+        Material blockType = GetWorld().GetBlock(lampLoc).Type;
+        switch (blockType)
+        {
+            case Material.RedstoneLampOn:
+                // All good.
+                break;
+            case Material.RedstoneLampOff:
+                LogToConsole("Lamp at " + lampLoc + " is OFF!");
+                break;
+            default:
+                LogToConsole("Unexpected block at " + lampLoc + ": " + blockType);
+                break;
+        }
+    }
+}
+```
+
+**Reading inventory contents:**
+
+```csharp
+public override void OnInventoryUpdate(int inventoryId)
+{
+    if (!GetInventoryEnabled()) return;
+
+    Container inv = GetPlayerInventory();
+    foreach (var kvp in inv.Items)
+    {
+        int slot = kvp.Key;
+        Item item = kvp.Value;
+        if (item.Type != ItemType.Air && item.Type != ItemType.Null)
+            LogToConsole($"Slot {slot}: {item.Type} x{item.Count}");
+    }
+}
+```

@@ -1,0 +1,334 @@
+---
+title: "Install Minecraft Console Client"
+description: "Install MCC on Windows, Linux, macOS, Docker, Android, or a VPS using a one-liner, a pre-built binary, or by building from source."
+---
+
+This page walks you through every supported way to get MCC running on your machine. Choose the method that fits your platform and use case. Most users on a desktop should start with the quick install or the pre-built binary.
+
+## Quick install (one-liner)
+
+The installer script auto-detects your operating system and CPU architecture, downloads the latest release from GitHub, and saves the binary to your current directory.
+
+<CodeGroup>
+
+```bash Linux / macOS (curl)
+curl -fsSL https://mccteam.github.io/install.sh | sh
+```
+
+```bash Linux / macOS (wget)
+wget -qO- https://mccteam.github.io/install.sh | sh
+```
+
+```powershell Windows (PowerShell)
+iwr -useb https://mccteam.github.io/install.ps1 | iex
+```
+
+</CodeGroup>
+
+<Tip>
+You can download and inspect the scripts before running them: [install.sh](https://mccteam.github.io/install.sh) (Linux/macOS) and [install.ps1](https://mccteam.github.io/install.ps1) (Windows).
+</Tip>
+
+Supported architectures:
+
+- **Linux**: `x64`, `arm64`, `arm`
+- **macOS**: `x64`, `arm64`
+- **Windows**: `x64`, `x86`, `arm64`
+
+## Download a pre-built binary
+
+Visit the [GitHub Releases page](https://github.com/MCCTeam/Minecraft-Console-Client/releases) and download the binary for your platform. No installation required -- just unzip and run.
+
+## Build from source
+
+Building from source requires [Git](https://www.git-scm.com/) and the [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download).
+
+<Tabs>
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Install prerequisites">
+        Install [Git](https://www.git-scm.com/) and the .NET 10 SDK. The fastest way to get the SDK on Windows is:
+
+        ```powershell
+        winget install Microsoft.DotNet.SDK.10
+        ```
+      </Step>
+      <Step title="Clone the repository">
+        Open Git Bash in the folder where you want the source code and run:
+
+        ```bash
+        git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+        ```
+
+        If you already cloned without `--recursive`, initialize the submodules manually:
+
+        ```bash
+        git submodule update --init --recursive
+        ```
+      </Step>
+      <Step title="Build">
+        Open PowerShell in the cloned `Minecraft-Console-Client` folder and run:
+
+        ```bash
+        dotnet build MinecraftClient.sln -c Release
+        ```
+
+        For a CI-matching published binary, use the repo helper tools:
+
+        ```bash
+        source tools/mcc-env.sh
+        mcc-publish --rid win-x64
+        ```
+
+        The compiled binary `MinecraftClient.exe` will be at `MinecraftClient/bin/Release/net10.0/win-x64/publish/`.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Linux">
+    <Steps>
+      <Step title="Install prerequisites">
+        Install Git for your distribution (for example, `apt install git` on Debian/Ubuntu or `pacman -S git` on Arch), then install the .NET 10 SDK.
+
+        On Ubuntu 24.04 LTS:
+
+        ```bash
+        sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0
+        ```
+
+        For other distributions, see the [.NET Linux install docs](https://learn.microsoft.com/en-us/dotnet/core/install/linux).
+      </Step>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+        ```
+      </Step>
+      <Step title="Build">
+        ```bash
+        source tools/mcc-env.sh
+        mcc-build
+        ```
+
+        For a published binary that matches the CI workflow:
+
+        ```bash
+        source tools/mcc-env.sh
+        mcc-publish --rid linux-x64
+        ```
+
+        <Note>
+        If you are on ARM, RHEL, or Musl Linux, replace `linux-x64` with the appropriate [RID](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#linux-rids), for example `linux-arm64`.
+        </Note>
+
+        The binary `MinecraftClient` will be at `MinecraftClient/bin/Release/net10.0/linux-x64/publish/`.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Install prerequisites">
+        Install Git ([git-scm.com/download/mac](https://git-scm.com/download/mac)) and the .NET 10 SDK from the [official .NET download page](https://dotnet.microsoft.com/en-us/download). Pick **Arm64** for Apple Silicon and **x64** for Intel.
+      </Step>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+        ```
+      </Step>
+      <Step title="Build">
+        ```bash
+        source tools/mcc-env.sh
+        mcc-publish --rid osx-x64
+        ```
+
+        <Note>
+        For Apple Silicon, replace `osx-x64` with `osx-arm64`.
+        </Note>
+
+        The binary `MinecraftClient` will be at `MinecraftClient/bin/Release/net10.0/osx-x64/publish/`.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+You can verify your .NET installation at any time with:
+
+```bash
+dotnet --info
+```
+
+## Run using Docker
+
+<Warning>
+Docker works, but MCC must be started in interactive mode. Starting the container in headless mode can crash MCC due to a `ConsoleInteractive` limitation.
+</Warning>
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/MCCTeam/Minecraft-Console-Client.git --recursive
+    ```
+  </Step>
+  <Step title="Build the Docker image">
+    Navigate to the `Docker` subdirectory and build:
+
+    ```bash
+    docker build -t minecraft-console-client:latest .
+    ```
+  </Step>
+  <Step title="Run the container interactively">
+    ```bash
+    docker run -it -v <PATH_ON_YOUR_MACHINE>:/opt/data minecraft-console-client:latest
+    ```
+
+    You can omit `-v` if you do not want a mounted volume. Keeping the volume makes it easy to edit `MinecraftClient.ini` from the host.
+
+    To detach from the container while leaving MCC running, press `Ctrl+P` then `Ctrl+Q`. Reattach with `docker attach`.
+  </Step>
+</Steps>
+
+**Using docker-compose**
+
+If you have a `docker-compose.yml` in the `Docker` folder, start MCC with:
+
+```bash
+docker-compose run MCC
+```
+
+If `MinecraftClient.ini` is pre-configured with your account and server, you can also use:
+
+```bash
+docker-compose up -d
+```
+
+Note that `docker-compose up` does not allow interactive input. Use `docker-compose run MCC` when you need to type commands.
+
+## Run on Android (Termux)
+
+MCC can run on Android through Termux and a proot Ubuntu environment. The setup takes 10-20 minutes depending on your device and connection speed.
+
+<Note>
+The Play Store version of Termux is outdated and unsupported. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or from the [Termux GitHub releases](https://github.com/termux/termux-app/releases/latest/).
+</Note>
+
+<Steps>
+  <Step title="Install Termux and acquire wakelock">
+    After installing Termux, open the Android notification drawer, find the Termux notification, expand it, and tap **Acquire wakelock**. This prevents Android from killing Termux in the background.
+  </Step>
+  <Step title="Install proot-distro and Ubuntu">
+    Open Termux and run the following commands in order:
+
+    ```bash
+    pkg update
+    pkg upgrade
+    pkg install proot-distro
+    proot-distro install ubuntu
+    ```
+
+    Start Ubuntu:
+
+    ```bash
+    proot-distro login ubuntu
+    ```
+
+    Run this command every time you open Termux to re-enter Ubuntu.
+  </Step>
+  <Step title="Install .NET 10">
+    Inside Ubuntu, run:
+
+    ```bash
+    apt update -y && apt upgrade -y
+    apt install wget curl nano -y
+    wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+    chmod +x dotnet-install.sh
+    ./dotnet-install.sh --channel 10.0
+    ```
+
+    Add .NET to your PATH by appending these lines to `~/.bashrc`:
+
+    ```bash
+    export DOTNET_ROOT=$HOME/.dotnet
+    export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools
+    ```
+
+    Apply the changes:
+
+    ```bash
+    source ~/.bashrc
+    ```
+  </Step>
+  <Step title="Download and run MCC">
+    Create a folder and download the latest ARM64 binary:
+
+    ```bash
+    mkdir MinecraftConsoleClient
+    cd MinecraftConsoleClient
+    wget -O MinecraftClient \
+      "$(curl -s https://api.github.com/repos/MCCTeam/Minecraft-Console-Client/releases/latest \
+        | grep 'browser_download_url.*linux-arm64"' \
+        | cut -d '"' -f 4)"
+    chmod +x MinecraftClient
+    ./MinecraftClient
+    ```
+
+    <Note>
+    If you have a 32-bit ARM device, replace `linux-arm64` with `linux-arm` in the command above.
+    </Note>
+  </Step>
+</Steps>
+
+## Run on a VPS
+
+Running MCC on a VPS lets you keep it connected 24 hours a day. Any Linux VPS running Ubuntu 24.04 LTS works well. MCC is lightweight and runs on the cheapest tier from providers like Hetzner, DigitalOcean, or OVH.
+
+<Steps>
+  <Step title="Connect to your VPS">
+    Use SSH to log in to your server:
+
+    ```bash
+    ssh <username>@<ip>
+    ```
+  </Step>
+  <Step title="Install .NET 10 SDK">
+    On Ubuntu 24.04 LTS, .NET 10 is available directly from the Ubuntu package feeds:
+
+    ```bash
+    sudo apt-get update -y && sudo apt-get install -y dotnet-sdk-10.0
+    ```
+  </Step>
+  <Step title="Install MCC">
+    Download the latest pre-built binary for your VPS architecture. For a standard x64 VPS:
+
+    ```bash
+    mkdir MinecraftConsoleClient && cd MinecraftConsoleClient
+    curl -fsSL https://mccteam.github.io/install.sh | sh
+    ```
+  </Step>
+  <Step title="Install screen and run MCC in the background">
+    Install `screen` so MCC keeps running after you close the SSH session:
+
+    ```bash
+    sudo apt install screen -y
+    ```
+
+    Start a named screen session:
+
+    ```bash
+    screen -S mcc
+    ```
+
+    Run MCC inside the screen:
+
+    ```bash
+    ./MinecraftClient
+    ```
+
+    Detach from the screen with `Ctrl+A` then `D`. Reattach later with:
+
+    ```bash
+    screen -r mcc
+    ```
+
+    <Tip>
+    If `screen` output is garbled or the process hangs, try `tmux` instead.
+    </Tip>
+  </Step>
+</Steps>

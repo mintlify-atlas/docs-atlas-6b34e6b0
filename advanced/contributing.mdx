@@ -1,0 +1,157 @@
+---
+title: "Contribute to Minecraft Console Client"
+description: "Help improve MCC by reporting bugs, requesting features, submitting code, improving documentation, or translating the client into your language via Crowdin."
+---
+
+Minecraft Console Client is an open-source project maintained by a small community. Every contribution matters -- whether it is a well-written bug report, a feature idea, a code patch, a documentation fix, or a translation that makes MCC accessible to more people. This page explains how to get involved.
+
+## Ways to contribute
+
+- **Bug reports** -- File a GitHub issue with reproduction steps and debug logs
+- **Feature requests** -- Open a GitHub issue with the `[Idea]` label describing the use case
+- **Code contributions** -- Fork the repository, open a branch, and submit a pull request to the `master` branch
+- **Documentation** -- Improve or add pages in the `docs/` directory of the main repository
+- **Translations** -- Translate in-app strings through [Crowdin](https://crowdin.com/project/minecraft-console-client)
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/MCCTeam/Minecraft-Console-Client/issues">
+    Report bugs and request features. Check existing issues before opening a new one.
+  </Card>
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/MCCTeam/Minecraft-Console-Client/discussions">
+    Ask questions, share ideas, and discuss usage with the community.
+  </Card>
+  <Card title="Discord server" icon="discord" href="https://discord.gg/sfBv4TtpC9">
+    Get real-time help and chat with other MCC users and contributors.
+  </Card>
+  <Card title="Crowdin (translations)" icon="language" href="https://crowdin.com/project/minecraft-console-client">
+    Translate MCC in-app text, config comments, and ASCII art into your language.
+  </Card>
+</CardGroup>
+
+## Reporting bugs
+
+A good bug report helps maintainers reproduce and fix the issue quickly. Include all of the following:
+
+- **Steps to reproduce** -- the exact sequence of actions that triggers the bug
+- **Expected behavior** -- what you expected to happen
+- **Actual behavior** -- what happened instead
+- **MCC version** -- the release tag or commit hash
+- **Minecraft version** -- the version of the server you were connecting to
+- **Operating system** -- Windows, Linux, or macOS and the version
+- **Debug logs** -- enable debug output in `MinecraftClient.ini` by setting `DebugMessages=true` and attach the relevant log section
+
+<Tip>
+  Always search [existing issues](https://github.com/MCCTeam/Minecraft-Console-Client/issues) before opening a new one. If the bug is already reported, add a comment with any additional information rather than opening a duplicate.
+</Tip>
+
+## Requesting features
+
+Open a new issue on GitHub and prefix the title with `[Idea]`. Describe:
+
+- The use case -- what problem you are trying to solve
+- The proposed behavior -- how you imagine the feature working
+- Any alternatives you have considered
+
+Feature requests are discussed openly. The MCC team or community members will comment, and accepted ideas may be picked up by a contributor or the core team.
+
+## Contributing code
+
+<Steps>
+  <Step title="Fork the repository">
+    Go to [github.com/MCCTeam/Minecraft-Console-Client](https://github.com/MCCTeam/Minecraft-Console-Client) and click **Fork** to create your own copy.
+  </Step>
+
+  <Step title="Clone and initialize submodules">
+    Clone your fork and initialize the required `ConsoleInteractive` submodule:
+
+    ```bash
+    git clone https://github.com/<your-username>/Minecraft-Console-Client.git --recursive
+    cd Minecraft-Console-Client
+    ```
+  </Step>
+
+  <Step title="Create a feature branch">
+    Work on a dedicated branch rather than committing directly to `master`:
+
+    ```bash
+    git checkout -b my-feature-or-fix
+    ```
+  </Step>
+
+  <Step title="Make your changes and build">
+    Set up the build environment and verify your changes compile cleanly:
+
+    ```bash
+    source tools/mcc-env.sh
+    mcc-build
+    ```
+
+    See [Building from source](/advanced/building-from-source) for detailed build instructions.
+  </Step>
+
+  <Step title="Submit a pull request">
+    Push your branch to your fork and open a pull request targeting the `master` branch of the upstream repository:
+
+    ```bash
+    git push origin my-feature-or-fix
+    ```
+
+    Then navigate to your fork on GitHub and click **Compare & pull request**.
+  </Step>
+</Steps>
+
+<Note>
+  For maintainer-style work using coding agents, read `docs/guide/ai-assisted-development.md` in the repository. It covers the full build-run-test loop and the local server harness used for protocol testing.
+</Note>
+
+## Code style
+
+MCC is written in C# targeting .NET 10. Follow these conventions when contributing code:
+
+- **Nullable-aware code** -- the project runs with nullable reference types enabled. Avoid suppressing nullable warnings; use proper null checks and `ArgumentNullException.ThrowIfNull` where appropriate.
+- **Modern C# features** -- use pattern matching, records, `Try*` APIs, and other C# 14 idioms where they improve clarity.
+- **Translation system for user-facing text** -- all messages shown to the user (log output, command results, help text, error messages) must go through the translation system. Add entries to `Translations.resx` and `Translations.Designer.cs`, then reference `Translations.key_name` in code. Never hardcode user-visible strings directly in `.cs` files. Use dot-delimited key names following the pattern `<module>.<scope>.<detail>`, for example `cmd.inventory.tui_opened`.
+- **Thread safety** -- use `InvokeOnMainThread()` for any state changes that need to run on the main thread rather than modifying shared state directly from background threads.
+- **Bot lifecycle** -- in bot classes, use `Initialize()` for setup and prerequisite checks, and `AfterGameJoined()` for sending chat or commands. Clean up commands, timers, and movement locks in `OnUnload()`.
+
+## Contributing documentation
+
+Documentation source lives in `docs/` in the main repository. Pages are MDX files using [Mintlify](https://mintlify.com) components. To preview changes locally:
+
+```bash
+cd docs
+npm install
+npm run docs:dev
+```
+
+Submit documentation improvements as pull requests to the `master` branch, the same as code changes.
+
+## Translations
+
+Translations are managed through [Crowdin](https://crowdin.com/project/minecraft-console-client). No programming knowledge is required.
+
+**Start with `MCC in-app text`** -- it is the highest-priority translation resource and covers the strings users see most often.
+
+There are three resources to translate:
+
+| Resource | Destination in repo |
+|---|---|
+| `MCC in-app text` | `MinecraftClient/Resources/Translations/` |
+| `Comments in the settings file` | `MinecraftClient/Resources/ConfigComments/` |
+| `ASCII Arts` | `MinecraftClient/Resources/AsciiArt/` |
+
+If your language is not listed on Crowdin, ask in [GitHub Discussions](https://github.com/MCCTeam/Minecraft-Console-Client/discussions) or on [Discord](https://discord.gg/sfBv4TtpC9) and the team will add it.
+
+## License
+
+MCC is released under the **CDDL-1.0** license. The key terms are:
+
+- You may use the code in any program, open or closed source, free or commercial.
+- Any modifications to CDDL-licensed code must be made publicly available under CDDL-1.0.
+- Programs that use CDDL code must credit the source.
+
+Full license text: [opensource.org/licenses/CDDL-1.0](http://opensource.org/licenses/CDDL-1.0)
+
+## Contributors
+
+See the full list of contributors at [github.com/MCCTeam/Minecraft-Console-Client/graphs/contributors](https://github.com/MCCTeam/Minecraft-Console-Client/graphs/contributors).

@@ -1,0 +1,189 @@
+---
+title: 'Authenticate with Microsoft or Offline Accounts'
+description: 'Configure Microsoft OAuth, offline mode, and Yggdrasil authlib accounts in MCC, including token caching and multi-account switching.'
+---
+
+Minecraft Console Client supports three authentication approaches: Microsoft accounts using the OAuth 2.0 device code flow, offline (cracked) accounts that skip authentication entirely, and Yggdrasil accounts for private or third-party auth servers running authlib-injector. All account settings live in the `[Main.General]` section of `MinecraftClient.ini`.
+
+<Note>
+  MCC never asks for your Microsoft account password. Authentication goes through Microsoft's OAuth 2.0 device code flow in your browser, which means your credentials stay with Microsoft and 2FA works normally.
+</Note>
+
+## Account types
+
+<Tabs>
+  <Tab title="Microsoft">
+    Microsoft is the default account type for all current Minecraft Java Edition purchases. MCC uses the OAuth 2.0 device code flow: it displays a short code and a URL, you visit the URL in any browser and enter the code, and MCC receives a token once you sign in. Your Microsoft password never passes through MCC.
+
+    ```toml
+    [Main.General]
+    AccountType = "microsoft"
+    Account = { Login = "player@example.com" }
+    ```
+
+    The `Method` setting controls which OAuth flow MCC uses:
+
+    - `mcc` (default) - MCC displays a URL and a device code. Open the URL in any browser, enter the code, and complete sign-in there. This works over SSH and in headless environments.
+    - `browser` - MCC opens a sign-in page directly in your browser and you paste the resulting code back into MCC.
+
+    ```toml
+    Method = "mcc"
+    ```
+
+    <Steps>
+      <Step title="Set your account in the config">
+        Open `MinecraftClient.ini` and set `AccountType` to `microsoft` and `Account` to your Microsoft email:
+
+        ```toml
+        [Main.General]
+        AccountType = "microsoft"
+        Account = { Login = "player@example.com" }
+        Method = "mcc"
+        ```
+      </Step>
+      <Step title="Start MCC">
+        Launch MCC. On the first run it prints a URL and a device code in the console:
+
+        ```
+        To sign in, visit: https://microsoft.com/devicelogin
+        Enter code: ABCD1234
+        ```
+      </Step>
+      <Step title="Complete sign-in in your browser">
+        Open the URL in any browser, enter the code, and sign in with your Microsoft account. Complete any 2FA prompts as usual.
+      </Step>
+      <Step title="Wait for MCC to continue">
+        MCC polls for the token. Once your browser confirms the sign-in, MCC automatically continues connecting to the server. No further interaction is needed.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Offline">
+    Offline accounts require no authentication. MCC connects directly using whatever username you provide. This is used for offline-mode servers (servers with `online-mode=false` in their `server.properties`).
+
+    Set `Password` to the literal string `-` to tell MCC this is an offline account:
+
+    ```toml
+    [Main.General]
+    AccountType = "microsoft"
+    Account = { Login = "Steve", Password = "-" }
+    ```
+
+    <Note>
+      The `AccountType` field does not affect offline accounts. Setting `Password = "-"` is what signals to MCC that no authentication is needed.
+    </Note>
+  </Tab>
+  <Tab title="Yggdrasil">
+    Yggdrasil authentication is used with private Minecraft servers running a custom authlib-injector instance. Set `AccountType` to `yggdrasil` and provide your credentials along with the auth server details.
+
+    ```toml
+    [Main.General]
+    AccountType = "yggdrasil"
+    Account = { Login = "user@example.com", Password = "yourpassword" }
+    ```
+
+    Configure the auth server in the `[Main.General.AuthServer]` subsection:
+
+    ```toml
+    [Main.General.AuthServer]
+    Host = "auth.example.com"
+    Port = 443
+    AuthlibInjectorAPIPath = "/api/yggdrasil"
+    UseHttps = true
+    ```
+
+    For a local development auth server over plain HTTP:
+
+    ```toml
+    [Main.General.AuthServer]
+    Host = "127.0.0.1"
+    Port = 25585
+    AuthlibInjectorAPIPath = "/authlib-injector"
+    UseHttps = false
+    ```
+
+    <ParamField path="AuthServer.Host" type="string">
+      The hostname or `host:port` pair of your authlib-injector server. If you include the port here, MCC updates `Port` to match.
+    </ParamField>
+
+    <ParamField path="AuthServer.Port" type="integer" default="443">
+      Port of the auth server. Overridden if you embed the port in `Host`.
+    </ParamField>
+
+    <ParamField path="AuthServer.AuthlibInjectorAPIPath" type="string" default='"/api/yggdrasil"'>
+      The API prefix path. Change this if your server uses a different prefix such as `/authlib-injector`.
+    </ParamField>
+
+    <ParamField path="AuthServer.UseHttps" type="boolean" default="true">
+      Set to `false` if your auth server only exposes plain HTTP (for development environments).
+    </ParamField>
+
+    <ParamField path="AuthUser" type="string" default='""'>
+      When the Yggdrasil server returns multiple profiles for an account, set this to the username of the profile MCC should use. Leave empty to select interactively.
+    </ParamField>
+  </Tab>
+</Tabs>
+
+## Token caching
+
+MCC caches session tokens so you do not have to authenticate on every launch. The `SessionCache` setting controls where the token is stored.
+
+<ParamField path="SessionCache" type="string" default="disk">
+  - `disk` - Token is written to a file on disk. MCC stays authenticated across restarts until the token expires. Anyone with access to the MCC directory can read the token file.
+  - `memory` - Token is held in RAM only. Authentication is required again after MCC exits.
+  - `none` - No caching. MCC authenticates from scratch every time it starts.
+</ParamField>
+
+<ParamField path="ProfileKeyCache" type="string" default="disk">
+  Same behavior as `SessionCache`, but controls the cache for your profile key. Profile keys are used for chat signing and validation on Minecraft 1.19 and later.
+</ParamField>
+
+```toml
+[Main.Advanced]
+SessionCache = "disk"
+ProfileKeyCache = "disk"
+```
+
+## Switching accounts with the CLI
+
+The `--account` flag lets you pick a different account at startup without editing the config file. Accounts must be defined in `[Main.Advanced.AccountList]`:
+
+```toml
+[Main.Advanced.AccountList]
+AltAccount = { Login = "alt@example.com" }
+OfflineBot  = { Login = "BotName", Password = "-" }
+```
+
+Then launch MCC with:
+
+```bash
+MinecraftClient.exe --account AltAccount
+```
+
+Or connect to a server and switch accounts at the same time:
+
+```
+/connect mc.example.com AltAccount
+```
+
+## Chat signing (Minecraft 1.19+)
+
+The `[Signature]` section controls whether MCC signs outgoing chat messages and how it marks signed messages from other players.
+
+<ParamField path="LoginWithSecureProfile" type="boolean" default="true">
+  When enabled, MCC logs in with a secure profile that supports chat signing. Disable this only if you need to join servers that do not enforce secure profiles. Required for servers with `enforce-secure-profile=true`.
+</ParamField>
+
+<ParamField path="SignChat" type="boolean" default="true">
+  Sign outgoing chat messages with your profile key.
+</ParamField>
+
+<ParamField path="SignMessageInCommand" type="boolean" default="true">
+  Sign messages contained in commands such as `/msg` and `/me`.
+</ParamField>
+
+```toml
+[Signature]
+LoginWithSecureProfile = true
+SignChat = true
+SignMessageInCommand = true
+```

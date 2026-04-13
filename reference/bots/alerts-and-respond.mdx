@@ -1,0 +1,136 @@
+---
+title: 'Alerts and Auto Respond Bots Reference'
+description: 'Configuration reference for the Alerts and AutoRespond bots: keyword triggers, weather alerts, regex pattern matching, and automated chat responses.'
+---
+
+The Alerts and AutoRespond bots handle chat monitoring and automated reactions. Alerts watches incoming chat for specific words, weather changes, or thunderstorms, and notifies you with a console beep or a log entry. AutoRespond goes further by running any MCC internal command whenever a message matches a plain-text string or a regular expression — useful for automated replies, moderation macros, or owner-only commands.
+
+## Alerts
+
+Get notified when specific words appear in chat, or when the weather changes on the server.
+
+**Config section:** `[ChatBot.Alerts]`
+
+```toml
+[ChatBot.Alerts]
+Enabled = false
+Beep_Enabled = true
+Trigger_By_Words = false
+Trigger_By_Rain = false
+Trigger_By_Thunderstorm = false
+Log_To_File = false
+Log_File = "alerts-log.txt"
+Matches = [ "Yourname", " whispers ", "-> me", "admin", ".com" ]
+Excludes = [ "myserver.com", "Yourname>:", "Player Yourname", "Yourname joined", "Yourname left" ]
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the Alerts bot. Set to `true` to activate alert monitoring.
+</ParamField>
+
+<ParamField path="Beep_Enabled" type="boolean" default="true">
+  Play a console beep when an alert fires. Behaviour depends on your terminal emulator and operating system — some environments do not produce an audible beep.
+</ParamField>
+
+<ParamField path="Trigger_By_Words" type="boolean" default="false">
+  When `true`, scan every chat message for the strings listed in `Matches`. An alert fires for each match that is not excluded by `Excludes`.
+</ParamField>
+
+<ParamField path="Trigger_By_Rain" type="boolean" default="false">
+  When `true`, fire an alert when rain starts or stops on the server.
+</ParamField>
+
+<ParamField path="Trigger_By_Thunderstorm" type="boolean" default="false">
+  When `true`, fire an alert when a thunderstorm begins or ends on the server.
+</ParamField>
+
+<ParamField path="Log_To_File" type="boolean" default="false">
+  Write triggered alerts to the file specified by `Log_File`. Only applies when `Trigger_By_Words` is `true`.
+</ParamField>
+
+<ParamField path="Log_File" type="string" default="alerts-log.txt">
+  Path to the file where alerts are appended when `Log_To_File` is `true`. Relative paths are resolved from the MCC working directory.
+</ParamField>
+
+<ParamField path="Matches" type="string[]">
+  List of case-insensitive strings that trigger an alert. A match fires if any item in this list appears in the incoming chat message and none of the `Excludes` strings also appear.
+
+  ```toml
+  Matches = [ "Yourname", " whispers ", "-> me", "admin", ".com" ]
+  ```
+</ParamField>
+
+<ParamField path="Excludes" type="string[]">
+  List of case-insensitive strings that suppress an alert. If any exclusion string is found in the message, no alert fires even if a `Matches` entry is also present.
+
+  ```toml
+  Excludes = [ "myserver.com", "Yourname>:", "Player Yourname", "Yourname joined", "Yourname left" ]
+  ```
+</ParamField>
+
+---
+
+## AutoRespond
+
+Run MCC internal commands automatically when a chat message matches a pattern. Rules are defined in a separate `.ini` file and support plain-text matching, regex, per-rule cooldowns, and owner-only filtering.
+
+**Config section:** `[ChatBot.AutoRespond]`
+
+<Warning>
+  Server admins can spoof private messages using `/tellraw` or `/nick`. Only enable AutoRespond on servers whose administrators you trust.
+</Warning>
+
+<Warning>
+  Depending on your rules, this bot can generate a high volume of outgoing messages. Use the global `messagecooldown` setting in the main config to limit accidental spam.
+</Warning>
+
+```toml
+[ChatBot.AutoRespond]
+Enabled = false
+Matches_File = "matches.ini"
+Match_Colors = false
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoRespond bot.
+</ParamField>
+
+<ParamField path="Matches_File" type="string" default="matches.ini">
+  Path to the `.ini` file that defines the match rules. The file is not created automatically — copy [sample-matches.ini](https://github.com/MCCTeam/Minecraft-Console-Client/blob/master/MinecraftClient/config/sample-matches.ini) from the repository and edit it to suit your needs.
+
+  <Note>
+    Variables from AutoRespond rules cannot currently be used in C# scripts. Use a native C# script bot if you need that functionality.
+  </Note>
+</ParamField>
+
+<ParamField path="Match_Colors" type="boolean" default="false">
+  When `true`, color codes (§ sequences) sent by the server are preserved in the text that is tested against match rules. This lets you match messages by their color. When `false`, color codes are stripped before matching.
+</ParamField>
+
+### Matches file format
+
+Each rule in the `.ini` file begins with a `[match]` section header and supports the following keys:
+
+| Key              | Description                                                                 |
+| ---------------- | --------------------------------------------------------------------------- |
+| `match`          | Plain-text string to search for (case-insensitive).                         |
+| `regex`          | Regular expression to test against the message.                             |
+| `action`         | MCC internal command to run when a public message matches.                  |
+| `actionprivate`  | MCC internal command to run when a private message matches.                 |
+| `actionother`    | MCC internal command to run when any other message type matches.            |
+| `ownersonly`     | `true` to restrict the rule to messages from bot owners only.               |
+| `cooldown`       | Minimum seconds between two activations of this rule.                       |
+
+Use `$1`, `$2`, ... to inject regex capture groups into the action string. Use `$u` for the sender's username.
+
+```ini
+[match]
+regex=(\w+) has joined the server
+action=send Welcome, $1!
+ownersonly=false
+cooldown=5
+```
+
+<Tip>
+  The full annotated example file at `config/sample-matches.ini` in the repository is the best reference for advanced rule patterns.
+</Tip>

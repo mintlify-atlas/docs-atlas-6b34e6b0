@@ -1,0 +1,135 @@
+---
+title: 'Anti-AFK and Auto Relog Bots Reference'
+description: 'Configuration reference for the AntiAFK and AutoRelog bots: action intervals, terrain movement, kick message filtering, reconnect delays, and retry limits.'
+---
+
+The AntiAFK and AutoRelog bots keep your session alive automatically. AntiAFK prevents the server from marking you as idle by sending commands, toggling sneak, or walking around at a configurable interval. AutoRelog watches for disconnections and reconnects after a configurable delay, optionally filtering by the content of the kick message so that permanent bans or intentional logouts do not trigger a reconnect loop.
+
+## AntiAFK
+
+Send a command, toggle sneak, or walk around randomly to prevent automatic AFK disconnection.
+
+**Config section:** `[ChatBot.AntiAFK]`
+
+```toml
+[ChatBot.AntiAFK]
+Enabled = false
+Delay = { min = 60.0, max = 60.0 }
+Command = "/ping"
+Use_Sneak = false
+Use_Terrain_Handling = false
+Walk_Range = 5
+Walk_Retries = 20
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AntiAFK bot.
+</ParamField>
+
+<ParamField path="Delay" type="inline table" default="{ min = 60.0, max = 60.0 }">
+  The interval in seconds between each anti-AFK action. Set `min` and `max` to the same value for a fixed interval, or to different values for a randomised interval. Randomisation can help avoid detection by server-side AFK plugins.
+
+  ```toml
+  Delay = { min = 45.0, max = 90.0 }
+  ```
+
+  Minimum allowed value for either field is `1.0` second.
+</ParamField>
+
+<ParamField path="Command" type="string" default="/ping">
+  The command or chat message sent to the server on each anti-AFK tick. This is used when `Use_Terrain_Handling` is `false` or when terrain pathfinding fails.
+</ParamField>
+
+<ParamField path="Use_Sneak" type="boolean" default="false">
+  Toggle sneak on each anti-AFK tick in addition to sending the command. Useful when the server requires physical input to reset the AFK timer.
+</ParamField>
+
+<ParamField path="Use_Terrain_Handling" type="boolean" default="false">
+  Move the bot to a random location within `Walk_Range` blocks instead of sending a command. Provides a more convincing anti-AFK behaviour.
+
+  <Note>
+    Requires **Terrain and Movements** to be enabled in the main configuration. Place the bot inside a small enclosure (recommended: 5×5×5 blocks) to prevent it from wandering too far.
+  </Note>
+</ParamField>
+
+<ParamField path="Walk_Range" type="integer" default="5">
+  The maximum distance in blocks the bot will walk from its current position on each anti-AFK tick (applied on both the X and Z axes). Keep this value between 2 and 5 — a larger range increases pathfinding time.
+</ParamField>
+
+<ParamField path="Walk_Retries" type="integer" default="20">
+  The number of pathfinding attempts per tick before the bot falls back to the command method. Each retry targets a different random location within `Walk_Range`. This fallback is per-tick only — the bot resumes terrain movement on the next tick.
+</ParamField>
+
+---
+
+## AutoRelog
+
+Automatically reconnect to the server after a disconnection. Reconnections can be restricted to specific kick messages so that deliberate logouts or bans do not trigger a retry loop.
+
+**Config section:** `[ChatBot.AutoRelog]`
+
+<Warning>
+  Setting `Retries` to a high value or `-1` (infinite) on a server that bans on repeated reconnections may result in your account being banned.
+</Warning>
+
+```toml
+[ChatBot.AutoRelog]
+Enabled = false
+Delay = { min = 3.0, max = 3.0 }
+Retries = 3
+Ignore_Kick_Message = false
+Kick_Messages = [
+  "Connection has been lost",
+  "Server is restarting",
+  "Server is full",
+  "Too Many people",
+]
+```
+
+<ParamField path="Enabled" type="boolean" default="false">
+  Enable or disable the AutoRelog bot.
+</ParamField>
+
+<ParamField path="Delay" type="inline table" default="{ min = 3.0, max = 3.0 }">
+  Time in seconds to wait before attempting to reconnect. Set `min` and `max` to the same value for a fixed delay, or to different values for a random delay within that range.
+
+  ```toml
+  Delay = { min = 8.0, max = 60.0 }
+  ```
+</ParamField>
+
+<ParamField path="Retries" type="integer" default="3">
+  Maximum number of reconnection attempts. Set to `-1` for unlimited retries. The counter resets to zero after a successful login.
+</ParamField>
+
+<ParamField path="Ignore_Kick_Message" type="boolean" default="false">
+  When `true`, reconnect after any disconnection regardless of the kick message content. The `Kick_Messages` list is ignored. When `false`, only reconnect if the kick message contains at least one entry from `Kick_Messages`.
+</ParamField>
+
+<ParamField path="Kick_Messages" type="string[]">
+  List of case-insensitive substrings to search for in the kick message. If `Ignore_Kick_Message` is `false`, a reconnect is triggered only when the kick message contains one of these strings.
+
+  ```toml
+  Kick_Messages = [
+    "Connection has been lost",
+    "Server is restarting",
+    "Server is full",
+    "Too Many people",
+  ]
+  ```
+</ParamField>
+
+### Example: randomised delay with filtered kick messages
+
+```toml
+[ChatBot.AutoRelog]
+Enabled = true
+Delay = { min = 10.0, max = 30.0 }
+Retries = 5
+Ignore_Kick_Message = false
+Kick_Messages = [
+  "Server is restarting",
+  "Server restart",
+  "Reboot",
+]
+```

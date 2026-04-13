@@ -1,0 +1,171 @@
+---
+title: "Using Minecraft Console Client"
+description: "Learn how to launch MCC on any platform, pass command-line arguments, connect to servers, and run internal commands from the chat prompt or scripts."
+---
+
+This page covers everything you need to go from a downloaded binary to a connected session. You will learn how to run MCC on Windows, Linux, macOS, and Docker; how to pass command-line arguments to connect and configure on startup; and how to use the internal command system once you are connected.
+
+## Running MCC
+
+<Tabs>
+  <Tab title="Windows">
+    Double-click `MinecraftClient.exe`, or run it from a terminal:
+
+    ```powershell
+    .\MinecraftClient.exe
+    ```
+
+    <Tip>
+    Use [Windows Terminal](https://docs.microsoft.com/en-us/windows/terminal/install) for the best experience. Some features such as emoji output in `/chunk` do not render correctly in CMD or PowerShell 5.
+    </Tip>
+  </Tab>
+  <Tab title="Linux / macOS">
+    Run MCC from the directory where the binary lives:
+
+    ```bash
+    ./MinecraftClient
+    ```
+
+    To keep MCC running after you close your terminal, use `screen`:
+
+    ```bash
+    # Start a named screen session
+    screen -S mcc
+
+    # Launch MCC inside it
+    ./MinecraftClient
+
+    # Detach with Ctrl+A then D, leaving MCC running in the background
+
+    # Reattach when you want access again
+    screen -r mcc
+    ```
+  </Tab>
+  <Tab title="Docker">
+    Run the container in interactive mode. Starting it in headless mode can crash MCC:
+
+    ```bash
+    docker run -it -v <PATH_ON_YOUR_MACHINE>:/opt/data minecraft-console-client:latest
+    ```
+
+    Detach from the running container with `Ctrl+P` then `Ctrl+Q`. Reattach with `docker attach`.
+
+    See [Install MCC](/installation) for the full Docker setup instructions.
+  </Tab>
+</Tabs>
+
+## Command-line parameters
+
+MCC accepts positional arguments and `--key=value` flags that let you connect, override settings, and run a command on startup without editing the config file.
+
+### Basic usage patterns
+
+<Note>
+On Linux and macOS, replace `MinecraftClient.exe` with `./MinecraftClient` in all examples below.
+</Note>
+
+```bash
+# Show all command-line options
+MinecraftClient.exe --help
+
+# Connect with a Microsoft account (device code flow -- no password needed)
+MinecraftClient.exe player@example.com "" mc.someserver.com:25565
+
+# Connect with an offline account
+MinecraftClient.exe Steve - mc.someserver.com:25565
+
+# Load a custom settings file
+MinecraftClient.exe CustomSettingsFile.ini
+
+# Override a setting from MinecraftClient.ini
+MinecraftClient.exe --debugmessages=false
+
+# Override a setting in a non-[Main] section
+MinecraftClient.exe --antiafk.enabled=true
+
+# Load a config file and override the language
+MinecraftClient.exe CustomSettingsFile.ini --language=zh
+```
+
+### Positional argument order
+
+Positional arguments are read left to right: `login`, `password`, `server`, then an optional `command` to run immediately on connect.
+
+```bash
+MinecraftClient.exe <login> <password> <server>
+MinecraftClient.exe <login> <password> <server> "/mycommand"
+MinecraftClient.exe <myconfig.ini>
+MinecraftClient.exe <myconfig.ini> <login> <password> <server> [--other settings]
+```
+
+- Omit `password` and/or `server` to be prompted interactively.
+- For Microsoft accounts, use `""` as a password placeholder when you need to pass a server address. Authentication uses the OAuth 2.0 device code flow.
+- Use `-` as the password to connect in offline mode.
+- Adding a fourth positional argument sends that command immediately after joining and then exits. Use the `ScriptScheduler` bot if you want to run multiple commands or stay connected.
+
+### Key command-line flags
+
+| Flag | Description |
+|---|---|
+| `--help` | Print usage and exit |
+| `--version` | Print the MCC version and exit |
+| `--use-version=<mc-version>` | Force a specific Minecraft protocol version (e.g. `1.21.1`) |
+| `--account=<alias>` | Use an account alias defined in your accounts file |
+| `--proxy=<host:port>` | Route traffic through an HTTP or SOCKS proxy |
+| `--debugmessages=<true\|false>` | Toggle debug log output |
+| `--setting=<value>` | Override any `[Main]` section setting |
+| `--section.setting=<value>` | Override a setting outside `[Main]` |
+
+## Internal commands
+
+Once connected, MCC exposes an internal command system. At the chat prompt, prefix every command with `/`. In scripts and remote control, omit the slash.
+
+```
+# Chat prompt
+/help
+
+# Script or remote control
+help
+```
+
+<Note>
+Use `/send /help` to send the `/help` command to the Minecraft server rather than to MCC.
+</Note>
+
+### Core commands
+
+| Command | Description |
+|---|---|
+| `/help` | List all available internal commands |
+| `/connect <server> [account]` | Connect to a server, resuming the current script |
+| `/disconnect` | Disconnect from the current server |
+| `/send <text>` | Send a chat message or server command |
+| `/move <x y z \| direction \| gravity on\|off>` | Move the player (requires terrain handling enabled) |
+| `/inventory <player\|container\|id> <action>` | Inspect and manipulate inventories (requires inventory handling enabled) |
+| `/script <script name>` | Run a `.mcc` script file |
+| `/bots <list \| unload <name\|all>>` | List or unload loaded bots |
+| `/quit` | Disconnect and close MCC (alias: `/exit`) |
+
+For the complete command reference including `animation`, `bed`, `blockinfo`, `chunk`, `dig`, `entity`, `look`, `reco`, `respawn`, `wait`, and more, see the [Commands reference](/reference/commands/overview).
+
+## App variables
+
+MCC exposes built-in variables you can use inside scripts and commands by wrapping the variable name in `%` signs.
+
+| Variable | Value |
+|---|---|
+| `%username%` | The player's in-game username |
+| `%login%` | The login email or username used for authentication |
+| `%serverip%` | The connected server's IP address |
+| `%serverport%` | The connected server's port number |
+| `%datetime%` | The current local date and time |
+| `%players%` | Comma-separated list of players currently online |
+
+Example use in a script:
+
+```
+send Hello, I am %username% connected to %serverip%:%serverport%
+log Current time: %datetime%
+```
+
+You can also define your own variables with `/set <variable>=<value>` and reference them the same way.

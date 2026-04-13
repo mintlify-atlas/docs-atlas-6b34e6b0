@@ -1,97 +1,83 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Minecraft Console Client: Lightweight Minecraft TUI Client"
+description: "Connect to any Minecraft Java server, automate gameplay with 28+ built-in bots, and write C# bots — all from the terminal, no game launcher needed."
 ---
 
-## Setting up
+Minecraft Console Client (MCC) is a lightweight, cross-platform, open-source TUI client for Minecraft Java Edition. It lets you connect to any Minecraft Java server, send chat and commands, and receive messages — all without opening the main game. MCC also ships with 28 built-in automation bots and a full C# scripting API for building your own.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install MCC on Windows, Linux, or macOS in seconds using the one-liner installer or pre-built binaries.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Usage" icon="terminal" href="/usage">
+    Learn how to run MCC, use command-line parameters, and navigate internal commands.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Configure accounts, server connections, authentication, proxies, and all client settings.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Automation & Bots" icon="robot" href="/automation/built-in-bots">
+    Explore 28 built-in bots for fishing, farming, AFK prevention, auto-crafting, and more.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Get up and running
 
-Everything you need to create world-class documentation.
+<Steps>
+  <Step title="Install MCC">
+    Run the one-liner installer for your platform:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+    <CodeGroup>
+    ```bash Linux / macOS
+    curl -fsSL https://mccteam.github.io/install.sh | sh
+    ```
+    ```powershell Windows (PowerShell)
+    iwr -useb https://mccteam.github.io/install.ps1 | iex
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Run the client">
+    Launch MCC from your terminal. On first run it creates a `MinecraftClient.ini` config file:
 
-## Need inspiration?
+    <CodeGroup>
+    ```bash Linux / macOS
+    ./MinecraftClient
+    ```
+    ```powershell Windows
+    .\MinecraftClient.exe
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Connect to a server">
+    You can pass your credentials and server directly on the command line:
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    ```bash
+    ./MinecraftClient your@email.com yourpassword play.example.com
+    ```
+
+    Or configure `MinecraftClient.ini` with your account and server, then just run MCC.
+  </Step>
+  <Step title="Automate with bots or scripts">
+    Enable built-in bots in the config file, or create your own with a simple text script or C# bot file.
+  </Step>
+</Steps>
+
+## What you can do with MCC
+
+<CardGroup cols={2}>
+  <Card title="C# Scripting" icon="code" href="/automation/csharp-bots">
+    Write custom bots in C# using the full ChatBot API — events, world data, inventory, pathfinding.
+  </Card>
+  <Card title="Text Scripts" icon="file-lines" href="/automation/text-scripts">
+    Automate simple workflows with plain-text scripts — one command per line, no coding required.
+  </Card>
+  <Card title="WebSocket Control" icon="plug" href="/automation/websocket">
+    Remotely control MCC over WebSocket using JSON messages from any language or tool.
+  </Card>
+  <Card title="Command Reference" icon="book" href="/reference/commands/overview">
+    Browse the full list of internal MCC commands with flags, examples, and version notes.
+  </Card>
+</CardGroup>
+
+<Note>
+  MCC supports Minecraft Java Edition versions **1.4.6 through 26.1**. Inventory, terrain, and entity handling require version 1.8 or later.
+</Note>
